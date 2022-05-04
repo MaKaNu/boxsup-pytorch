@@ -1,0 +1,35 @@
+---
+name: Code Quality Checks
+
+on:
+  push:
+    branches: [main, development]
+  pull_request:
+    branches: [main, development]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python 3.7
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.7
+      - name: Install poetry
+        run: pip install poetry
+      - name: Install dependencies
+        run: poetry update
+      - name: Unit & Coverage test with pytest
+        run: poetry run pytest
+      - name: Check style with flake8
+        run: poetry run flake8 boxsup_pytorch/ tests/
+      
+      - name: Check format with black
+        run: poetry run black --check boxsup_pytorch/ tests/
+      - name: Check type hinting with mypy
+        run: poetry run mypy --strict --config-file=mypy.ini boxsup_pytorch/
+      - name: Check yaml style with yamllint
+        run: poetry run yamllint . -c yamllint-config.yml
