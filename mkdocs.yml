@@ -2,7 +2,7 @@
 # Project Information
 site_name: BoxSup-pytorch
 site_author: Matti Kaupenjohann
-site_description: The BoxSup-pytorch is an implementation of the BoxSup Algorithm in pytorch. Since the original paper has no available implementation this implementation is only based on the paper. They may be a few differences to the explanations from the paper.
+site_description: The BoxSup-pytorch is an implementation of the BoxSup Algorithm.
 
 # Repository information
 repo_name: makanu/boxsup-pytorch
