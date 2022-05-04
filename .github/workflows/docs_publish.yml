@@ -13,7 +13,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         python: [3.7]
-        
+
     steps:
       - name: get repo
         uses: actions/checkout@v2
@@ -35,6 +35,6 @@ jobs:
       - name: Install dependencies
         run: poetry install
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-      
+
       - name: deploy docs
         run: poetry run mkdocs gh-deploy --force
