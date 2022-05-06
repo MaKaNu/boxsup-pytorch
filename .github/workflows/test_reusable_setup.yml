@@ -13,5 +13,5 @@ jobs:
         uses: makanu/poetry-setup-composite-action@v5
         with:
           python_version: '3.7'
-          hashed_key: "venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}"
+          hashed_key: "venv-${{ runner.os }}-${{ secrets.CACHE_VERSION }}-${{ hashFiles('**/poetry.lock') }}"
           poetry_command: "pytest"
