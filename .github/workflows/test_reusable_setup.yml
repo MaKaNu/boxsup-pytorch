@@ -8,6 +8,6 @@ on:
 jobs:
   call-setup:
     steps:
-      - uses: .github/workflows/reusable_setup.yml
+      - uses: ./.github/workflows/reusable_setup.yml
       - name: Unit & Coverage test with pytest
         run: poetry run pytest
