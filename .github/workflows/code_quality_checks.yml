@@ -35,17 +35,35 @@ jobs:
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
       - name: check directory
         run: ls -la .
+      - name: Upload math result for job 1
+        uses: actions/upload-artifact@v2
+        with:
+          name: venv
+          path: .venv/
+          retention-days: 1
 
   test:
     runs-on: ubuntu-latest
     needs: setup
     steps:
+      - name: get repo
+        uses: actions/checkout@v2
+      - name: Download venv
+        uses: actions/download-artifact@v3
+        with:
+          name: venv
       - name: Unit & Coverage test with pytest
         run: poetry run pytest
   pythonlint:
     runs-on: ubuntu-latest
     needs: setup
     steps:
+      - name: get repo
+        uses: actions/checkout@v2
+      - name: Download venv
+        uses: actions/download-artifact@v3
+        with:
+          name: venv
       - name: Check style with flake8
         run: poetry run flake8 boxsup_pytorch/ tests/
 
@@ -53,6 +71,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: setup
     steps:
+      - name: get repo
+        uses: actions/checkout@v2
+      - name: Download venv
+        uses: actions/download-artifact@v3
+        with:
+          name: venv
       - name: Check format with black
         run: poetry run black --check boxsup_pytorch/ tests/
 
@@ -60,6 +84,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: setup
     steps:
+      - name: get repo
+        uses: actions/checkout@v2
+      - name: Download venv
+        uses: actions/download-artifact@v3
+        with:
+          name: venv
       - name: Check type hinting with mypy
         run: poetry run mypy --strict --config-file=mypy.ini boxsup_pytorch/
 
@@ -67,5 +97,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: setup
     steps:
+      - name: get repo
+        uses: actions/checkout@v2
+      - name: Download venv
+        uses: actions/download-artifact@v3
+        with:
+          name: venv
       - name: Check yaml style with yamllint
         run: poetry run yamllint . -c yamllint-config.yml
