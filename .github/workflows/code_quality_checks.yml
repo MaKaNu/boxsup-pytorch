@@ -17,7 +17,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - id: poetry-setup
-        uses: actions/poetry-setup-composite-action@v2
+        uses: makanu/poetry-setup-composite-action@v2
         with:
           python_version: ${{ matrix.python }}
       - name: Unit & Coverage test with pytest
