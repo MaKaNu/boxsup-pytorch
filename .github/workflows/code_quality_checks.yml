@@ -8,36 +8,62 @@ on:
     branches: [main, development]
 
 jobs:
-  test:
+  run-pytest-setup:
     runs-on: ubuntu-latest
+    name: Run Pytest with Poetry
     steps:
-      - name: get repo
-        uses: actions/checkout@v2
-      - name: Set up Python 3.7
-        uses: actions/setup-python@v1
+      - uses: actions/checkout@v3
+      - id: poetry-setup
+        uses: makanu/poetry-setup-composite-action@v1
         with:
-          python-version: 3.7
-      - name: Install poetry
-        uses: snok/install-poetry@v1.0.0
+          python_version: '3.7'
+          hashed_key: "venv-${{ runner.os }}-${{ secrets.CACHE_VERSION }}-${{ hashFiles('**/poetry.lock') }}"
+          poetry_command: "pytest"
+
+  run-flake-setup:
+    runs-on: ubuntu-latest
+    name: Run Flake8 with Poetry
+    steps:
+      - uses: actions/checkout@v3
+      - id: poetry-setup
+        uses: makanu/poetry-setup-composite-action@v1
         with:
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-      - name: Load cached venv
-        id: cached-poetry-dependencies
-        uses: actions/cache@v2
+          python_version: '3.7'
+          hashed_key: "venv-${{ runner.os }}-${{ secrets.CACHE_VERSION }}-${{ hashFiles('**/poetry.lock') }}"
+          poetry_command: "flake8 boxsup_pytorch/ tests/"
+
+  run-black-setup:
+    runs-on: ubuntu-latest
+    name: Run black with Poetry
+    steps:
+      - uses: actions/checkout@v3
+      - id: poetry-setup
+        uses: makanu/poetry-setup-composite-action@v1
         with:
-          path: .venv
-          key: venv-${{ runner.os }}-${{ secrets.CACHE_VERSION }}-${{ hashFiles('**/poetry.lock') }}
-      - name: Install dependencies
-        run: poetry install
-        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-      - name: Unit & Coverage test with pytest
-        run: poetry run pytest
-      - name: Check style with flake8
-        run: poetry run flake8 boxsup_pytorch/ tests/
-      - name: Check format with black
-        run: poetry run black --check boxsup_pytorch/ tests/
-      - name: Check type hinting with mypy
-        run: poetry run mypy --strict --config-file=mypy.ini boxsup_pytorch/
-      - name: Check yaml style with yamllint
-        run: poetry run yamllint . -c yamllint-config.yml
+          python_version: '3.7'
+          hashed_key: "venv-${{ runner.os }}-${{ secrets.CACHE_VERSION }}-${{ hashFiles('**/poetry.lock') }}"
+          poetry_command: "black --check boxsup_pytorch/ tests/"
+
+  run-mypy-setup:
+    runs-on: ubuntu-latest
+    name: Run mypy with Poetry
+    steps:
+      - uses: actions/checkout@v3
+      - id: poetry-setup
+        uses: makanu/poetry-setup-composite-action@v1
+        with:
+          python_version: '3.7'
+          hashed_key: "venv-${{ runner.os }}-${{ secrets.CACHE_VERSION }}-${{ hashFiles('**/poetry.lock') }}"
+          poetry_command: "mypy --strict --config-file=mypy.ini boxsup_pytorch/"
+
+  run-yamllint-setup:
+    runs-on: ubuntu-latest
+    name: Run yamllint with Poetry
+    steps:
+      - uses: actions/checkout@v3
+      - id: poetry-setup
+        uses: makanu/poetry-setup-composite-action@v1
+        with:
+          python_version: '3.7'
+          hashed_key: "venv-${{ runner.os }}-${{ secrets.CACHE_VERSION }}-${{ hashFiles('**/poetry.lock') }}"
+          poetry_command: "yamllint . -c yamllint-config.yml"
