@@ -9,6 +9,8 @@ jobs:
   call-setup:
     runs-on: ubuntu-latest
     steps:
+      - name: get repo
+        uses: actions/checkout@v2
       - uses: ./.github/workflows/reusable_setup.yml
       - name: Unit & Coverage test with pytest
         run: poetry run pytest
