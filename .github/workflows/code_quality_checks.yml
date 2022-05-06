@@ -39,26 +39,31 @@ jobs:
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
 
   test:
+    runs-on: ${{ matrix.os }}
     needs: setup
     steps:
       - name: Unit & Coverage test with pytest
         run: poetry run pytest
   pythonlint:
+    runs-on: ${{ matrix.os }}
     needs: setup
     steps:
       - name: Check style with flake8
         run: poetry run flake8 boxsup_pytorch/ tests/
   format:
+    runs-on: ${{ matrix.os }}
     needs: setup
     steps:
       - name: Check format with black
         run: poetry run black --check boxsup_pytorch/ tests/
   typehint:
+    runs-on: ${{ matrix.os }}
     needs: setup
     steps:
       - name: Check type hinting with mypy
         run: poetry run mypy --strict --config-file=mypy.ini boxsup_pytorch/
   yamllint:
+    runs-on: ${{ matrix.os }}
     needs: setup
     steps:
       - name: Check yaml style with yamllint
