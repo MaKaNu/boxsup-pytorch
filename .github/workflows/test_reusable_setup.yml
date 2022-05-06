@@ -1,16 +1,17 @@
 ---
 name: Test reusable setup
 
-on:
-  push:
-    branches: [main, development]
+on: [push]
 
 jobs:
-  call-setup:
+  run-poetry-setup:
     runs-on: ubuntu-latest
+    name: A job to say hello
     steps:
-      - name: get repo
-        uses: actions/checkout@v2
-      - uses: .github/workflows/reusable_setup.yml
-      - name: Unit & Coverage test with pytest
-        run: poetry run pytest
+      - uses: actions/checkout@v3
+      - id: poetry-setup
+        uses: makanu/poetry-setup-composite-action@v4
+        with:
+          python_version: '3.7'
+          hashed_key: "venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}"
+          poetry_command: "pytest"
