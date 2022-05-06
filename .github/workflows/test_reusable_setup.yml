@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - id: poetry-setup
-        uses: makanu/poetry-setup-composite-action@v4
+        uses: makanu/poetry-setup-composite-action@v5
         with:
           python_version: '3.7'
           hashed_key: "venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}"
