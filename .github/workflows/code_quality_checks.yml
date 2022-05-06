@@ -8,10 +8,9 @@ on:
     branches: [main, development]
 
 jobs:
-  setup:
-
+ 
+  test:
     runs-on: ubuntu-latest
-
     steps:
       - name: get repo
         uses: actions/checkout@v2
@@ -33,83 +32,109 @@ jobs:
       - name: Install dependencies
         run: poetry install
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-      - name: zip repo
-        run: zip -r repo.zip .
-      - name: Upload repo
-        uses: actions/upload-artifact@v2
-        with:
-          name: repo
-          path: repo.zip
-          retention-days: 5     
-
-  test:
-    runs-on: ubuntu-latest
-    needs: setup
-    steps:
-      - name: Download repo
-        uses: actions/download-artifact@v3
-        with:
-          name: repo
-      - name: unzip repo
-        run: unzip repo.zip; ls -la
       - name: Unit & Coverage test with pytest
         run: poetry run pytest
+
   pythonlint:
     runs-on: ubuntu-latest
-    needs: setup
     steps:
       - name: get repo
         uses: actions/checkout@v2
-      - name: Download venv
-        uses: actions/download-artifact@v3
+      - name: Set up Python 3.7
+        uses: actions/setup-python@v1
         with:
-          name: venv
-      - name: unzip venv
-        run: unzip venv.zip
+          python-version: 3.7
+      - name: Install poetry
+        uses: snok/install-poetry@v1.0.0
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v2
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+      - name: Install dependencies
+        run: poetry install
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
       - name: Check style with flake8
         run: poetry run flake8 boxsup_pytorch/ tests/
 
   format:
     runs-on: ubuntu-latest
-    needs: setup
     steps:
       - name: get repo
         uses: actions/checkout@v2
-      - name: Download venv
-        uses: actions/download-artifact@v3
+      - name: Set up Python 3.7
+        uses: actions/setup-python@v1
         with:
-          name: venv
-      - name: unzip venv
-        run: unzip venv.zip
+          python-version: 3.7
+      - name: Install poetry
+        uses: snok/install-poetry@v1.0.0
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v2
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+      - name: Install dependencies
+        run: poetry install
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
       - name: Check format with black
         run: poetry run black --check boxsup_pytorch/ tests/
 
   typehint:
     runs-on: ubuntu-latest
-    needs: setup
     steps:
       - name: get repo
         uses: actions/checkout@v2
-      - name: Download venv
-        uses: actions/download-artifact@v3
+      - name: Set up Python 3.7
+        uses: actions/setup-python@v1
         with:
-          name: venv
-      - name: unzip venv
-        run: unzip venv.zip
+          python-version: 3.7
+      - name: Install poetry
+        uses: snok/install-poetry@v1.0.0
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v2
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+      - name: Install dependencies
+        run: poetry install
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
       - name: Check type hinting with mypy
         run: poetry run mypy --strict --config-file=mypy.ini boxsup_pytorch/
 
   yamllint:
     runs-on: ubuntu-latest
-    needs: setup
     steps:
       - name: get repo
         uses: actions/checkout@v2
-      - name: Download venv
-        uses: actions/download-artifact@v3
+      - name: Set up Python 3.7
+        uses: actions/setup-python@v1
         with:
-          name: venv
-      - name: unzip venv
-        run: unzip venv.zip
+          python-version: 3.7
+      - name: Install poetry
+        uses: snok/install-poetry@v1.0.0
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v2
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+      - name: Install dependencies
+        run: poetry install
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
       - name: Check yaml style with yamllint
         run: poetry run yamllint . -c yamllint-config.yml
