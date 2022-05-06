@@ -7,6 +7,7 @@ on:
 
 jobs:
   call-setup:
+    runs-on: ubuntu-latest
     steps:
       - uses: ./.github/workflows/reusable_setup.yml
       - name: Unit & Coverage test with pytest
