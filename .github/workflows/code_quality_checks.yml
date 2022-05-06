@@ -34,7 +34,7 @@ jobs:
         run: poetry install
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
       - name: check directory
-        run: ls -l .
+        run: ls -la .
 
   test:
     runs-on: ubuntu-latest
