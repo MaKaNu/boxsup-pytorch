@@ -9,7 +9,7 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu_latest
+    runs-on: ubuntu-latest
     steps:
       - name: get repo
         uses: actions/checkout@v2
