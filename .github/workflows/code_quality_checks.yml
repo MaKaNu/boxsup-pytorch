@@ -8,36 +8,6 @@ on:
     branches: [main, development]
 
 jobs:
-  setup:
-
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        python: [3.7]
-
-    steps:
-      - name: get repo
-        uses: actions/checkout@v2
-      - name: Set up Python 3.7
-        uses: actions/setup-python@v1
-        with:
-          python-version: ${{ matrix.python }}
-      - name: Install poetry
-        uses: snok/install-poetry@v1.0.0
-        with:
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-      - name: Load cached venv
-        id: cached-poetry-dependencies
-        uses: actions/cache@v2
-        with:
-          path: .venv
-          key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
-      - name: Install dependencies
-        run: poetry install
-        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-
   test:
     strategy:
       matrix:
@@ -45,8 +15,11 @@ jobs:
         python: [3.7]
 
     runs-on: ${{ matrix.os }}
-    needs: setup
     steps:
+      - id: poetry-setup
+        uses: actions/poetry-setup-composite-action@v2
+        with:
+          python_version: ${{ matrix.python }}
       - name: Unit & Coverage test with pytest
         run: poetry run pytest
 
@@ -57,7 +30,6 @@ jobs:
         python: [3.7]
 
     runs-on: ${{ matrix.os }}
-    needs: setup
     steps:
       - name: Check style with flake8
         run: poetry run flake8 boxsup_pytorch/ tests/
@@ -69,7 +41,6 @@ jobs:
         python: [3.7]
 
     runs-on: ${{ matrix.os }}
-    needs: setup
     steps:
       - name: Check format with black
         run: poetry run black --check boxsup_pytorch/ tests/
@@ -81,7 +52,6 @@ jobs:
         python: [3.7]
 
     runs-on: ${{ matrix.os }}
-    needs: setup
     steps:
       - name: Check type hinting with mypy
         run: poetry run mypy --strict --config-file=mypy.ini boxsup_pytorch/
@@ -93,7 +63,6 @@ jobs:
         python: [3.7]
 
     runs-on: ${{ matrix.os }}
-    needs: setup
     steps:
       - name: Check yaml style with yamllint
         run: poetry run yamllint . -c yamllint-config.yml
