@@ -16,7 +16,7 @@ jobs:
       - id: poetry-setup
         uses: makanu/poetry-setup-composite-action@v1
         with:
-          python_version: '3.7'
+          python_version: '3.8'
           hashed_key: "venv-${{ runner.os }}-${{ secrets.CACHE_VERSION }}-${{ hashFiles('**/poetry.lock') }}"
           poetry_command: "pytest"
 
@@ -28,7 +28,7 @@ jobs:
       - id: poetry-setup
         uses: makanu/poetry-setup-composite-action@v1
         with:
-          python_version: '3.7'
+          python_version: '3.8'
           hashed_key: "venv-${{ runner.os }}-${{ secrets.CACHE_VERSION }}-${{ hashFiles('**/poetry.lock') }}"
           poetry_command: "flake8 boxsup_pytorch/ tests/"
 
@@ -40,7 +40,7 @@ jobs:
       - id: poetry-setup
         uses: makanu/poetry-setup-composite-action@v1
         with:
-          python_version: '3.7'
+          python_version: '3.8'
           hashed_key: "venv-${{ runner.os }}-${{ secrets.CACHE_VERSION }}-${{ hashFiles('**/poetry.lock') }}"
           poetry_command: "black --check boxsup_pytorch/ tests/"
 
@@ -52,7 +52,7 @@ jobs:
       - id: poetry-setup
         uses: makanu/poetry-setup-composite-action@v1
         with:
-          python_version: '3.7'
+          python_version: '3.8'
           hashed_key: "venv-${{ runner.os }}-${{ secrets.CACHE_VERSION }}-${{ hashFiles('**/poetry.lock') }}"
           poetry_command: "mypy --strict --config-file=mypy.ini boxsup_pytorch/"
 
@@ -64,6 +64,6 @@ jobs:
       - id: poetry-setup
         uses: makanu/poetry-setup-composite-action@v1
         with:
-          python_version: '3.7'
+          python_version: '3.8'
           hashed_key: "venv-${{ runner.os }}-${{ secrets.CACHE_VERSION }}-${{ hashFiles('**/poetry.lock') }}"
           poetry_command: "yamllint . -c yamllint-config.yml"
