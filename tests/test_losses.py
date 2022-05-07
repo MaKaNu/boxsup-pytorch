@@ -71,12 +71,49 @@ test scenario for compare labels:
     - candidates: count 1, label 2
 
     expected result = Array[True, False]
+
+test scenario for intersection over union:
+    The formula:
+
+    $IoU (B, S) =
+    {sum_of_intersecting_pixel\over sum_of_union_pixel}
+    $
+
+    $sum_of_intersecting_pixel =
+    sum(B(l_B)\wedge S(l_S))
+    $
+
+    $sum_of_union_pixel =
+    sum(B(l_B)\vee S(l_S))
+    $
+
+    we test with following inputs:
+
+    Grid size is 2x2 and 3x3
+
+    test 1:
+    - bounding_box: count 1, label 1, grid 2x2
+    - candidates: count 1, label 1, grid 2x2, overlapping
+
+    expected result = 0.5
+
+    test 2:
+    - bounding_box: count 1, label 1, grid 2x2
+    - candidates: count 1, label 1, grid 3x2x2, full overlapping
+
+    expected result = Array[1,1,1]
+
+    test 3:
+    - bounding_box: count 1, label 1, grid 3x3
+    - candidates: count 1, label 1, grid 3x3, full overlapping
+
+    expected result = 3/5
 """
 
 import numpy as np
 import pytest
 
-from boxsup_pytorch.losses import compare_labels
+from boxsup_pytorch.losses import compare_labels, inter_o_union
 
 # Fixture Setup
 
@@ -89,13 +126,13 @@ def bounding_box() -> np.array:
 
 @pytest.fixture()
 def bounding_box3() -> np.array:
-    """Pytest fixture of 2x2 BoundingBox."""
+    """Pytest fixture of 3x3 BoundingBox."""
     return np.array([[1, 1, 1], [1, 0, 2], [2, 2, 2]])
 
 
 @pytest.fixture()
 def multi_cand() -> np.array:
-    """Pytest fixture of 2x2 BoundingBox."""
+    """Pytest fixture of 3x3 multi class."""
     return np.array([[1, 1, 1], [2, 0, 1], [2, 2, 2]])
 
 
@@ -160,3 +197,22 @@ def test_compare_labels_3(bounding_box: np.array, overlap_cand: np.array):
     """Test 3: multi candidates with different class labels."""
     result = compare_labels(bounding_box, np.array((overlap_cand, overlap_cand * 2)))
     assert (result == np.array((True, False))).all()
+
+
+# Intersection over Union Tests
+
+
+def test_inter_o_union_1(bounding_box: np.array, overlap_cand: np.array):
+    """Test 1: even overlapping."""
+    assert inter_o_union(bounding_box, overlap_cand) == 0.5
+
+
+def test_inter_o_union_2(bounding_box: np.array, full_overlap_cands: np.array):
+    """Test 2: uneven overlapping."""
+    result = inter_o_union(bounding_box, full_overlap_cands)
+    assert (result == np.array((1, 1, 1), dtype=np.float64)).all()
+
+
+def test_inter_o_union_3(bounding_box3: np.array, multi_cand: np.array):
+    """Test 3: multi class."""
+    assert inter_o_union(bounding_box3, multi_cand) == 3 / 5
