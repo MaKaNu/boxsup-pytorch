@@ -6,6 +6,28 @@ import numpy as np
 import numpy.typing as npt
 
 
+def overlapping_loss(
+    box: npt.NDArray[np.float64], candidates: npt.NDArray[np.float64]
+) -> Union[npt.NDArray[np.float64], np.float64]:
+    """Calculate how well candidates matches the bounding box.
+
+    Args:
+        box (np.array): boundingbox
+        candidates (np.array): candidate or array of candidates
+
+    Returns:
+        np.float64: the calculated loss
+    """
+    print(1 - inter_o_union(box, candidates))
+    if len(candidates.shape) == 3:
+        N = candidates.shape[0]
+        return (
+            1 / N * np.sum((1 - inter_o_union(box, candidates)) * compare_labels(box, candidates))
+        )
+    else:
+        return (1 - inter_o_union(box, candidates)) * compare_labels(box, candidates)
+
+
 def compare_labels(
     box: npt.NDArray[np.float64], candidates: npt.NDArray[np.float64]
 ) -> Union[bool, npt.NDArray[np.bool_]]:
