@@ -39,10 +39,44 @@ test scenario for overlapping_loss:
     - candidates: count 1, label 1, no overlapping
 
     expected result = 1
+
+test scenario for compare labels:
+    The formula:
+
+    $\delta (l_B, l_S) =
+    \begin{cases}
+    1 & \text{if } l_B = l_S \\
+    0 & \text{otherwise.}
+    \end{cases}$
+
+    we test with following inputs:
+
+    Grid size is always 2x2
+
+    test 1:
+    - bounding_box: count 1, label 1
+    - candidates: count 1, label 1
+
+    expected result = True
+
+    test 2:
+    - bounding_box: count 1, label 1
+    - candidates: count 1, label 2
+
+    expected result = False
+
+    test 3:
+    - bounding_box: count 1, label 1
+    - candidates: count 1, label 1
+    - candidates: count 1, label 2
+
+    expected result = Array[True, False]
 """
 
 import numpy as np
 import pytest
+
+from boxsup_pytorch.losses import compare_labels
 
 # Fixture Setup
 
@@ -107,3 +141,22 @@ def full_overlap_cands(full_overlap_cand: np.array) -> np.array:
 def diff_label_cands(full_overlap_cand: np.array) -> np.array:
     """Pytest fixture of 3 2x2 not overlapping candidates."""
     return np.array((full_overlap_cand * 2, full_overlap_cand * 2, full_overlap_cand * 2))
+
+
+# Compare Labels Tests
+
+
+def test_compare_labels_1(bounding_box: np.array, overlap_cand: np.array):
+    """Test 1: same class labels."""
+    assert compare_labels(bounding_box, overlap_cand)
+
+
+def test_compare_labels_2(bounding_box: np.array, overlap_cand: np.array):
+    """Test 2: different class labels."""
+    assert not compare_labels(bounding_box, overlap_cand * 2)
+
+
+def test_compare_labels_3(bounding_box: np.array, overlap_cand: np.array):
+    """Test 3: multi candidates with different class labels."""
+    result = compare_labels(bounding_box, np.array((overlap_cand, overlap_cand * 2)))
+    assert (result == np.array((True, False))).all()
