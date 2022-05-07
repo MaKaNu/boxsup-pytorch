@@ -20,8 +20,9 @@ include = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.7"
-importlib_metadata = "^3.4.0"
+python = ">=3.8,<3.11"
+importlib_metadata = ">=4.4.0"
+numpy = "1.22.3"
 
 [tool.poetry.dev-dependencies]
 mkdocs-material = "^6.1.5"
