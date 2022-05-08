@@ -1,113 +1,12 @@
 r"""Test Module for losses.
 
-test scenario for compare labels:
-    The formula:
+Each test is documented with a few explanations about the test.
+This is a class based test scenario with Global test fixtures.
 
-    $\delta (l_B, l_S) =
-    \begin{cases}
-    1 & \text{if } l_B = l_S \\
-    0 & \text{otherwise.}
-    \end{cases}$
-
-    we test with following inputs:
-
-    Grid size is always 2x2
-
-    test 1:
-    - bounding_box: count 1, label 1
-    - candidates: count 1, label 1
-
-    expected result = True
-
-    test 2:
-    - bounding_box: count 1, label 1
-    - candidates: count 1, label 2
-
-    expected result = False
-
-    test 3:
-    - bounding_box: count 1, label 1
-    - candidates: count 1, label 1
-    - candidates: count 1, label 2
-
-    expected result = Array[True, False]
-
-test scenario for intersection over union:
-    The formula:
-
-    $IoU (B, S) =
-    {sum_of_intersecting_pixel\over sum_of_union_pixel}
-    $
-
-    $sum_of_intersecting_pixel =
-    sum(B(l_B)\wedge S(l_S))
-    $
-
-    $sum_of_union_pixel =
-    sum(B(l_B)\vee S(l_S))
-    $
-
-    we test with following inputs:
-
-    Grid size is 2x2 and 3x3
-
-    test 1:
-    - bounding_box: count 1, label 1, grid 2x2
-    - candidates: count 1, label 1, grid 2x2, overlapping
-
-    expected result = 0.5
-
-    test 2:
-    - bounding_box: count 1, label 1, grid 2x2
-    - candidates: count 1, label 1, grid 3x2x2, full overlapping
-
-    expected result = Array[1,1,1]
-
-    test 3:
-    - bounding_box: count 1, label 1, grid 3x3
-    - candidates: count 1, label 1, grid 3x3, full overlapping
-
-    expected result = 3/5
-
-test scenario for overlapping_loss:
-    The loss formula:
-    $\Epsilon_o = {1\over N} \sum (1 - IoU(B,S)\delta (l_B, l_S)$
-
-    we test with following inputs:
-
-    Grid size is always 2x2
-
-    test 1:
-    - bounding_box: count 1, label 1
-    - candidates: count 3, label 1, no overlapping
-
-    expected result = 1
-
-    test 2:
-    - bounding_box: count 1, label 1
-    - candidates: count 1, label 1, no overlapping
-    - candidates: count 1, label 1, overlapping
-    - candidates: count 1, label 1, full overlapping
-
-    expected result = 1/2
-
-    test 3:
-    - bounding_box: count 1, label 1
-    - candidates: count 3, label 1, full overlapping
-
-    expected result = 0
-
-    test 4:
-    - bounding_box: count 1, label 1
-    - candidates: count 3, label 2, full overlapping
-
-    expected result = 0
-
-    test 5:
-    - bounding_box: count 1, label 1
-    - candidates: count 1, label 1, no overlapping
-
-    expected result = 1
+TestClasses:
+    - TestCompareLabel
+    - TestInterOUnion
+    - TestOverlapping
 """
 
 import numpy as np
@@ -182,65 +81,173 @@ def diff_label_cands(full_overlap_cand: np.array) -> np.array:
 
 # Compare Labels Tests
 
+class TestCompareLabel:
+    r"""Test scenario for compare labels.
 
-def test_compare_labels_1(bounding_box: np.array, overlap_cand: np.array):
-    """Test 1: same class labels."""
-    assert compare_labels(bounding_box, overlap_cand)
+    The formula:
 
+    $\delta (l_B, l_S) =
+    \begin{cases}
+    1 & \text{if } l_B = l_S \\
+    0 & \text{otherwise.}
+    \end{cases}$
 
-def test_compare_labels_2(bounding_box: np.array, overlap_cand: np.array):
-    """Test 2: different class labels."""
-    assert not compare_labels(bounding_box, overlap_cand * 2)
+    Test using following inputs:
 
+    Grid size is always 2x2
+    """
 
-def test_compare_labels_3(bounding_box: np.array, overlap_cand: np.array):
-    """Test 3: multi candidates with different class labels."""
-    result = compare_labels(bounding_box, np.array((overlap_cand, overlap_cand * 2)))
-    assert (result == np.array((True, False))).all()
+    def test_compare_labels_1(self, bounding_box: np.array, overlap_cand: np.array):
+        """Test 1: same class labels.
+
+        - bounding_box: count 1, label 1
+        - candidates: count 1, label 1
+
+        expected result = True
+        """
+        assert compare_labels(bounding_box, overlap_cand)
+
+    def test_compare_labels_2(self, bounding_box: np.array, overlap_cand: np.array):
+        """Test 2: different class labels.
+
+        - bounding_box: count 1, label 1
+        - candidates: count 1, label 2
+
+        expected result = False
+        """
+        assert not compare_labels(bounding_box, overlap_cand * 2)
+
+    def test_compare_labels_3(self, bounding_box: np.array, overlap_cand: np.array):
+        """Test 3: multi candidates with different class labels.
+
+        - bounding_box: count 1, label 1
+        - candidates: count 1, label 1
+        - candidates: count 1, label 2
+
+        expected result = Array[True, False]
+        """
+        result = compare_labels(bounding_box, np.array((overlap_cand, overlap_cand * 2)))
+        assert (result == np.array((True, False))).all()
 
 
 # Intersection over Union Tests
 
+class TestInterOUnion:
+    r"""Test scenario for intersection over union.
 
-def test_inter_o_union_1(bounding_box: np.array, overlap_cand: np.array):
-    """Test 1: even overlapping."""
-    assert inter_o_union(bounding_box, overlap_cand) == 0.5
+    The formula:
 
+    $IoU (B, S) =
+    {sum_of_intersecting_pixel\over sum_of_union_pixel}
+    $
 
-def test_inter_o_union_2(bounding_box: np.array, full_overlap_cands: np.array):
-    """Test 2: uneven overlapping."""
-    result = inter_o_union(bounding_box, full_overlap_cands)
-    assert (result == np.array((1, 1, 1), dtype=np.float64)).all()
+    $sum_of_intersecting_pixel =
+    sum(B(l_B)\wedge S(l_S))
+    $
 
+    $sum_of_union_pixel =
+    sum(B(l_B)\vee S(l_S))
+    $
 
-def test_inter_o_union_3(bounding_box3: np.array, multi_cand: np.array):
-    """Test 3: multi class."""
-    assert inter_o_union(bounding_box3, multi_cand) == 3 / 5
+    Tests using following inputs:
+
+    Grid size is 2x2 and 3x3
+    """
+
+    def test_inter_o_union_1(self, bounding_box: np.array, overlap_cand: np.array):
+        """Test 1: even overlapping.
+
+        - bounding_box: count 1, label 1, grid 2x2
+        - candidates: count 1, label 1, grid 2x2, overlapping
+
+        expected result = 0.5
+        """
+        assert inter_o_union(bounding_box, overlap_cand) == 0.5
+
+    def test_inter_o_union_2(self, bounding_box: np.array, full_overlap_cands: np.array):
+        """Test 2: uneven overlapping.
+
+        - bounding_box: count 1, label 1, grid 2x2
+        - candidates: count 1, label 1, grid 3x2x2, full overlapping
+
+        expected result = Array[1,1,1]
+        """
+        result = inter_o_union(bounding_box, full_overlap_cands)
+        assert (result == np.array((1, 1, 1), dtype=np.float64)).all()
+
+    def test_inter_o_union_3(self, bounding_box3: np.array, multi_cand: np.array):
+        """Test 3: multi class.
+
+        - bounding_box: count 1, label 1, grid 3x3
+        - candidates: count 1, label 1, grid 3x3, full overlapping
+
+        expected result = 3/5
+        """
+        assert inter_o_union(bounding_box3, multi_cand) == 3 / 5
 
 
 # Overlapping Loss Tests
 
+class TestOverlapping:
+    r"""Test scenario for overlapping_loss.
 
-def test_overlapping_1(bounding_box: np.array, not_overlap_cands: np.array):
-    """Test 1: no overlapping."""
-    assert overlapping_loss(bounding_box, not_overlap_cands) == 1
+    The loss formula:
 
+    $\Epsilon_o = {1\over N} \sum (1 - IoU(B,S)\delta (l_B, l_S)$
 
-def test_overlapping_2(bounding_box: np.array, mixed_overlap_cands: np.array):
-    """Test 2: mixed overlapping."""
-    assert overlapping_loss(bounding_box, mixed_overlap_cands) == 1 / 2
+    Tests using following inputs:
 
+    Grid size is always 2x2
+    """
 
-def test_overlapping_3(bounding_box: np.array, full_overlap_cands: np.array):
-    """Test 3: full overlapping."""
-    assert overlapping_loss(bounding_box, full_overlap_cands) == 0
+    def test_overlapping_1(self, bounding_box: np.array, not_overlap_cands: np.array):
+        """Test 1: no overlapping.
 
+        - bounding_box: count 1, label 1
+        - candidates: count 3, label 1, no overlapping
 
-def test_overlapping_4(bounding_box: np.array, diff_label_cands: np.array):
-    """Test 4: diff overlapping."""
-    assert overlapping_loss(bounding_box, diff_label_cands) == 0
+        expected result = 1
+        """
+        assert overlapping_loss(bounding_box, not_overlap_cands) == 1
 
+    def test_overlapping_2(self, bounding_box: np.array, mixed_overlap_cands: np.array):
+        """Test 2: mixed overlapping.
 
-def test_overlapping_5(bounding_box: np.array, not_overlap_cand: np.array):
-    """Test 5: no overlapping single."""
-    assert overlapping_loss(bounding_box, not_overlap_cand) == 1
+        - bounding_box: count 1, label 1
+        - candidates: count 1, label 1, no overlapping
+        - candidates: count 1, label 1, overlapping
+        - candidates: count 1, label 1, full overlapping
+
+        expected result = 1/2
+        """
+        assert overlapping_loss(bounding_box, mixed_overlap_cands) == 1 / 2
+
+    def test_overlapping_3(self, bounding_box: np.array, full_overlap_cands: np.array):
+        """Test 3: full overlapping.
+
+        - bounding_box: count 1, label 1
+        - candidates: count 3, label 1, full overlapping
+
+        expected result = 0
+        """
+        assert overlapping_loss(bounding_box, full_overlap_cands) == 0
+
+    def test_overlapping_4(self, bounding_box: np.array, diff_label_cands: np.array):
+        """Test 4: diff overlapping.
+
+        - bounding_box: count 1, label 1
+        - candidates: count 3, label 2, full overlapping
+
+        expected result = 0
+        """
+        assert overlapping_loss(bounding_box, diff_label_cands) == 0
+
+    def test_overlapping_5(self, bounding_box: np.array, not_overlap_cand: np.array):
+        """Test 5: no overlapping single.
+
+        - bounding_box: count 1, label 1
+        - candidates: count 1, label 1, no overlapping
+
+        expected result = 1
+        """
+        assert overlapping_loss(bounding_box, not_overlap_cand) == 1
