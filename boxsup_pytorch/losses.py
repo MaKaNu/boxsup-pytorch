@@ -4,6 +4,8 @@ from typing import Union
 
 import numpy as np
 import numpy.typing as npt
+import torch
+import torch.nn as nn
 
 
 def overlapping_loss(
@@ -26,6 +28,29 @@ def overlapping_loss(
         )
     else:
         return (1 - inter_o_union(box, candidates)) * compare_labels(box, candidates)
+
+
+def regression_loss(
+    est_mask: npt.NDArray[np.float64], lab_mask: npt.NDArray[np.float64]
+) -> Union[npt.NDArray[np.float64], np.float64]:
+    """Calculate logistic regression.
+
+    Args:
+        est_mask (npt.NDArray[np.float64]): Estimated mask
+        lab_mask (npt.NDArray[np.float64]): Label mask
+
+    Returns:
+        Union[npt.NDArray[np.float64], np.float64]: logistic regression loss
+    """
+    if len(lab_mask.shape) == 3:  # More than 1 candidate
+        num_labels = lab_mask.shape[0]
+        est_mask = np.concatenate([est_mask] * num_labels)
+    else:
+        lab_mask = lab_mask.reshape(1, *lab_mask.shape)
+    loss = nn.CrossEntropyLoss(reduction="none", ignore_index=0)
+    input = torch.from_numpy(est_mask.astype(np.float64))
+    target = torch.from_numpy(lab_mask.astype(np.int64))
+    return torch.mean(loss(input, target), dim=(1, 2)).numpy()
 
 
 def compare_labels(

@@ -7,12 +7,15 @@ TestClasses:
     - TestCompareLabel
     - TestInterOUnion
     - TestOverlapping
+    - TestRegression
 """
+
+from cmath import isclose
 
 import numpy as np
 import pytest
 
-from boxsup_pytorch.losses import compare_labels, inter_o_union, overlapping_loss
+from boxsup_pytorch.losses import compare_labels, inter_o_union, overlapping_loss, regression_loss
 
 # Fixture Setup
 
@@ -27,6 +30,36 @@ def bounding_box() -> np.array:
 def bounding_box3() -> np.array:
     """Pytest fixture of 3x3 BoundingBox."""
     return np.array([[1, 1, 1], [1, 0, 2], [2, 2, 2]])
+
+
+@pytest.fixture()
+def prediction_2_cls() -> np.array:
+    """Pytest fixture of 2x2 Prediction based on mask."""
+    prediction_mask = np.array([[0, 1], [0, 0]])
+    bsize = 1
+    num_cls = 2
+    dim = prediction_mask.shape
+    for cls_idx in prediction_mask.flatten():
+        if "pred" not in vars():
+            pred = np.eye(num_cls, 1, k=-cls_idx).flatten()
+            continue
+        pred = np.vstack((pred, np.eye(num_cls, 1, k=-cls_idx).flatten()))
+    return pred.transpose().reshape(bsize, num_cls, *dim)
+
+
+@pytest.fixture()
+def prediction_3_cls() -> np.array:
+    """Pytest fixture of 2x2 Prediction based on mask."""
+    prediction_mask = np.array([[0, 1], [0, 0]])
+    bsize = 1
+    num_cls = 3
+    dim = prediction_mask.shape
+    for cls_idx in prediction_mask.flatten():
+        if "pred" not in vars():
+            pred = np.eye(num_cls, 1, k=-cls_idx).flatten()
+            continue
+        pred = np.vstack((pred, np.eye(num_cls, 1, k=-cls_idx).flatten()))
+    return pred.transpose().reshape(bsize, num_cls, *dim)
 
 
 @pytest.fixture()
@@ -81,6 +114,7 @@ def diff_label_cands(full_overlap_cand: np.array) -> np.array:
 
 # Compare Labels Tests
 
+
 class TestCompareLabel:
     r"""Test scenario for compare labels.
 
@@ -131,6 +165,7 @@ class TestCompareLabel:
 
 
 # Intersection over Union Tests
+
 
 class TestInterOUnion:
     r"""Test scenario for intersection over union.
@@ -187,6 +222,7 @@ class TestInterOUnion:
 
 
 # Overlapping Loss Tests
+
 
 class TestOverlapping:
     r"""Test scenario for overlapping_loss.
@@ -251,3 +287,93 @@ class TestOverlapping:
         expected result = 1
         """
         assert overlapping_loss(bounding_box, not_overlap_cand) == 1
+
+
+class TestRegression:
+    r"""Test scenario for regression_loss.
+
+    The loss formula:
+
+    $\Epsilon(\phi) = \sum_p e(X_\phi(p), l_S(p))$
+    """
+
+    def test_regression_1(self, prediction_2_cls: np.array, not_overlap_cands: np.array):
+        """Test 1: no overlapping.
+
+        - prediction: count 1, label 1
+        - candidates: count 3, label 1, no overlapping
+
+        expected result = array[0.3283, 0.3283, 0.3283]
+        """
+        # Ignoring Background with idx=0
+        # since only one field on the candidates is cls idx 1
+        # which is not 1 on the prediction
+        # the target_0 is the negative logsoftmax of 0
+        target_0 = np.mean((-np.log(np.exp(0) / (np.exp(1) + np.exp(0))), 0, 0, 0))
+        result = regression_loss(prediction_2_cls, not_overlap_cands)
+        target_array = np.array((target_0, target_0, target_0))
+        for values in zip(result, target_array):
+            assert isclose(*values, abs_tol=1e-15)
+
+    def test_regression_2(self, prediction_2_cls: np.array, full_overlap_cands: np.array):
+        """Test 2: full overlapping.
+
+        - prediction: count 1, label 1
+        - candidates: count 3, label 1, full overlapping
+
+        expected result = array[0.0783, 0.0783, 0.0783]
+        """
+        # Ignoring Background with idx=0
+        # since only one field on the candidates is cls idx 1
+        # which is 1 on the prediction
+        # the target_1 is the negative logsoftmax of 1
+        target_1 = np.mean((-np.log(np.exp(1) / (np.exp(1) + np.exp(0))), 0, 0, 0))
+        result = regression_loss(prediction_2_cls, full_overlap_cands)
+        target_array = np.array((target_1, target_1, target_1))
+        for values in zip(result, target_array):
+            assert isclose(*values, abs_tol=1e-15)
+
+    def test_regression_3(self, prediction_2_cls: np.array, mixed_overlap_cands: np.array):
+        """Test 3: mixed overlapping.
+
+        - prediction: count 1, label 1
+        - candidates: count 1, label 1, no overlapping
+        - candidates: count 1, label 1, overlapping
+        - candidates: count 1, label 1, full overlapping
+
+        expected result = array[0.3283, 0.4066, 0.0783]
+        """
+        # Ignoring Background with idx=0
+        # since upto two fields on the candidates are cls idx 1
+        # where one is 1 and the other is 0 on the prediction
+        # the target_0 is the negative logsoftmax of 0
+        # the target_1 is the negative logsoftmax of 1
+        target_0 = np.mean((-np.log(np.exp(0) / (np.exp(1) + np.exp(0))), 0, 0, 0))
+        target_1 = np.mean((-np.log(np.exp(1) / (np.exp(1) + np.exp(0))), 0, 0, 0))
+        result = regression_loss(prediction_2_cls, mixed_overlap_cands)
+        target_array = np.array((target_0, target_0 + target_1, target_1))
+        for values in zip(result, target_array):
+            assert isclose(*values, abs_tol=1e-15)
+
+    def test_regression_4(self, prediction_3_cls: np.array, full_overlap_cand: np.array):
+        """Test 4: diff overlapping.
+
+        - prediction: count 1, label 1
+        - candidates: count 1, label 2, full overlapping
+
+        expected result = array[0.3283, 0.4066, 0.0783]
+        """
+        # Ignoring Background with idx=0
+        # since only one field on the candidates is cls idx 2
+        # but the corresponding prediction fireld is 1
+        # the target_0 is the negative logsoftmax of 0
+        target_0 = np.mean(
+            (
+                -np.log(np.exp(0) / np.sum(np.exp(np.array((0, 1, 0))))),  # Now three Classes
+                0,  # Background
+                0,  # Backgorund
+                0,  # Background
+            )
+        )
+        result = regression_loss(prediction_3_cls, full_overlap_cand * 2)
+        assert isclose(result, target_0, abs_tol=1e-15)
