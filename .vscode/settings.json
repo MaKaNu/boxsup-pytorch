@@ -1,7 +1,10 @@
 {
     "python.testing.pytestArgs": [
         "tests",
-        "--no-cov"
+        "--no-cov",
+        "--ignore=.${workspaceFolder}/boxsup_pytorch/awe_sem_seg"
+
+
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
