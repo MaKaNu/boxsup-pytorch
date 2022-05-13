@@ -6,7 +6,10 @@ from typing import Union
 import numpy as np
 import numpy.typing as npt
 from PIL import Image
+import torch
+import torch.backends.cudnn as cudnn
 
+from ..awe_sem_seg.core.models.fcn import get_fcn8s
 from ..losses import overlapping_loss, regression_loss, weighted_loss
 
 
@@ -34,5 +37,25 @@ class ErrorCalc:
         Returns:
             np.array: Array with Class predictions
         """
-        # TODO realize real function
-        return np.random.rand(1, 5, 25, 25)
+
+        # Setup Model
+        model = get_fcn8s(
+            dataset='mars',
+            backbone='vgg16',
+            pretrained=True,
+            local_rank=0
+        )
+        if torch.cuda.is_available():
+            cudnn.benchmark = True
+            use_device = "cuda"
+        else:
+            use_device = "cpu"
+        device = torch.device(use_device)
+        model.to(device)
+        model.eval()
+        
+        # Begin Inference
+        image = image.to(self.device)
+        with torch.no_grad():
+                outputs = model(self.in_image)
+        return outputs
