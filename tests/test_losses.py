@@ -15,7 +15,13 @@ from cmath import isclose
 import numpy as np
 import pytest
 
-from boxsup_pytorch.losses import compare_labels, inter_o_union, overlapping_loss, regression_loss
+from boxsup_pytorch.losses import (
+    compare_labels,
+    inter_o_union,
+    overlapping_loss,
+    regression_loss,
+    weighted_loss,
+)
 
 # Fixture Setup
 
@@ -112,9 +118,6 @@ def diff_label_cands(full_overlap_cand: np.array) -> np.array:
     return np.array((full_overlap_cand * 2, full_overlap_cand * 2, full_overlap_cand * 2))
 
 
-# Compare Labels Tests
-
-
 class TestCompareLabel:
     r"""Test scenario for compare labels.
 
@@ -162,9 +165,6 @@ class TestCompareLabel:
         """
         result = compare_labels(bounding_box, np.array((overlap_cand, overlap_cand * 2)))
         assert (result == np.array((True, False))).all()
-
-
-# Intersection over Union Tests
 
 
 class TestInterOUnion:
@@ -219,9 +219,6 @@ class TestInterOUnion:
         expected result = 3/5
         """
         assert inter_o_union(bounding_box3, multi_cand) == 3 / 5
-
-
-# Overlapping Loss Tests
 
 
 class TestOverlapping:
@@ -377,3 +374,33 @@ class TestRegression:
         )
         result = regression_loss(prediction_3_cls, full_overlap_cand * 2)
         assert isclose(result, target_0, abs_tol=1e-15)
+
+
+class TestWeightedLoss:
+    r"""Test scenario for weighted_loss.
+
+    The loss formula:
+
+    $\Epsilon = \Epsilon_o + \lamda\Epsilon_r$
+    """
+
+    def test_weighted_1(self):
+        """Test 1: standard weight.
+
+        - epsilon_o: 3
+        - epsilon_r: 4
+
+        expected result = 15
+        """
+        assert weighted_loss(3, 4) == 15
+
+    def test_weighted_2(self):
+        """Test 2: custom weight.
+
+        - epsilon_o: 3
+        - epsilon_r: 4
+        - weight: 2
+
+        expected result = 11
+        """
+        assert weighted_loss(3, 4, 2) == 11
