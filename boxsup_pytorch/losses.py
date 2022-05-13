@@ -53,6 +53,24 @@ def regression_loss(
     return torch.mean(loss(input, target), dim=(1, 2)).numpy()
 
 
+def weighted_loss(
+    o_loss: Union[np.float64, npt.NDArray[np.float64]],
+    r_loss: Union[np.float64, npt.NDArray[np.float64]],
+    weight: np.float64 = np.float64(3.0),
+) -> Union[np.float64, npt.NDArray[np.float64]]:
+    """Calculate the weighted loss.
+
+    Args:
+        o_loss (Union): single overlapping or array loss
+        r_loss (Union): single regression or array loss
+        weight (np.float64): weighting factor
+
+    Returns:
+        np.float64: weighted loss
+    """
+    return o_loss + weight * r_loss
+
+
 def compare_labels(
     box: npt.NDArray[np.float64], candidates: npt.NDArray[np.float64]
 ) -> Union[bool, npt.NDArray[np.bool_]]:
