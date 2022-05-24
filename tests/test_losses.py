@@ -14,6 +14,7 @@ from cmath import isclose
 
 import numpy as np
 import pytest
+import torch
 
 from boxsup_pytorch.losses import (
     compare_labels,
@@ -23,25 +24,24 @@ from boxsup_pytorch.losses import (
     weighted_loss,
 )
 
+
 # Fixture Setup
-
-
 @pytest.fixture()
-def bounding_box() -> np.array:
+def bounding_box() -> torch.Tensor:
     """Pytest fixture of 2x2 BoundingBox."""
-    return np.array([[0, 1], [0, 0]])
+    return torch.tensor([[0, 1], [0, 0]])
 
 
 @pytest.fixture()
-def bounding_box3() -> np.array:
+def bounding_box3() -> torch.Tensor:
     """Pytest fixture of 3x3 BoundingBox."""
-    return np.array([[1, 1, 1], [1, 0, 2], [2, 2, 2]])
+    return torch.tensor([[1, 1, 1], [1, 0, 2], [2, 2, 2]])
 
 
 @pytest.fixture()
-def prediction_2_cls() -> np.array:
+def prediction_2_cls() -> torch.Tensor:
     """Pytest fixture of 2x2 Prediction based on mask."""
-    prediction_mask = np.array([[0, 1], [0, 0]])
+    prediction_mask = torch.tensor([[0, 1], [0, 0]])
     bsize = 1
     num_cls = 2
     dim = prediction_mask.shape
@@ -50,7 +50,8 @@ def prediction_2_cls() -> np.array:
             pred = np.eye(num_cls, 1, k=-cls_idx).flatten()
             continue
         pred = np.vstack((pred, np.eye(num_cls, 1, k=-cls_idx).flatten()))
-    return pred.transpose().reshape(bsize, num_cls, *dim)
+
+    return torch.tensor(pred.transpose().reshape(bsize, num_cls, *dim))
 
 
 @pytest.fixture()
@@ -65,57 +66,57 @@ def prediction_3_cls() -> np.array:
             pred = np.eye(num_cls, 1, k=-cls_idx).flatten()
             continue
         pred = np.vstack((pred, np.eye(num_cls, 1, k=-cls_idx).flatten()))
-    return pred.transpose().reshape(bsize, num_cls, *dim)
+    return torch.tensor(pred.transpose().reshape(bsize, num_cls, *dim))
 
 
 @pytest.fixture()
 def multi_cand() -> np.array:
     """Pytest fixture of 3x3 multi class."""
-    return np.array([[1, 1, 1], [2, 0, 1], [2, 2, 2]])
+    return torch.tensor([[1, 1, 1], [2, 0, 1], [2, 2, 2]])
 
 
 @pytest.fixture()
 def overlap_cand() -> np.array:
     """Pytest fixture of 2x2 overlapping candidate."""
-    return np.array([[0, 1], [0, 1]])
+    return torch.tensor([[0, 1], [0, 1]])
 
 
 @pytest.fixture()
 def not_overlap_cand() -> np.array:
     """Pytest fixture of 2x2 not overlapping candidate."""
-    return np.array([[0, 0], [1, 0]])
+    return torch.tensor([[0, 0], [1, 0]])
 
 
 @pytest.fixture()
-def full_overlap_cand() -> np.array:
+def full_overlap_cand():
     """Pytest fixture of 2x2 full overlapping candidate."""
-    return np.array([[0, 1], [0, 0]])
+    return torch.tensor([[0, 1], [0, 0]])
 
 
 @pytest.fixture()
-def not_overlap_cands(not_overlap_cand: np.array) -> np.array:
+def not_overlap_cands(not_overlap_cand):
     """Pytest fixture of 3 2x2 not overlapping candidates."""
-    return np.array((not_overlap_cand, not_overlap_cand, not_overlap_cand))
+    return torch.stack((not_overlap_cand, not_overlap_cand, not_overlap_cand))
 
 
 @pytest.fixture()
 def mixed_overlap_cands(
-    not_overlap_cand: np.array, overlap_cand: np.array, full_overlap_cand: np.array
-) -> np.array:
+    not_overlap_cand, overlap_cand, full_overlap_cand
+):
     """Pytest fixture of 3 2x2 mixed overlapping candidates."""
-    return np.array((not_overlap_cand, overlap_cand, full_overlap_cand))
+    return torch.stack((not_overlap_cand, overlap_cand, full_overlap_cand))
 
 
 @pytest.fixture()
 def full_overlap_cands(full_overlap_cand: np.array) -> np.array:
     """Pytest fixture of 3 2x2 not overlapping candidates."""
-    return np.array((full_overlap_cand, full_overlap_cand, full_overlap_cand))
+    return torch.stack((full_overlap_cand, full_overlap_cand, full_overlap_cand))
 
 
 @pytest.fixture()
-def diff_label_cands(full_overlap_cand: np.array) -> np.array:
+def diff_label_cands(full_overlap_cand):
     """Pytest fixture of 3 2x2 not overlapping candidates."""
-    return np.array((full_overlap_cand * 2, full_overlap_cand * 2, full_overlap_cand * 2))
+    return torch.stack((full_overlap_cand * 2, full_overlap_cand * 2, full_overlap_cand * 2))
 
 
 class TestCompareLabel:
@@ -154,7 +155,7 @@ class TestCompareLabel:
         """
         assert not compare_labels(bounding_box, overlap_cand * 2)
 
-    def test_compare_labels_3(self, bounding_box: np.array, overlap_cand: np.array):
+    def test_compare_labels_3(self, bounding_box, overlap_cand, ):
         """Test 3: multi candidates with different class labels.
 
         - bounding_box: count 1, label 1
@@ -163,8 +164,8 @@ class TestCompareLabel:
 
         expected result = Array[True, False]
         """
-        result = compare_labels(bounding_box, np.array((overlap_cand, overlap_cand * 2)))
-        assert (result == np.array((True, False))).all()
+        result = compare_labels(bounding_box, torch.stack((overlap_cand, overlap_cand * 2)))
+        assert (result == torch.tensor((True, False))).all()
 
 
 class TestInterOUnion:
@@ -189,7 +190,7 @@ class TestInterOUnion:
     Grid size is 2x2 and 3x3
     """
 
-    def test_inter_o_union_1(self, bounding_box: np.array, overlap_cand: np.array):
+    def test_inter_o_union_1(self, bounding_box, overlap_cand, ):
         """Test 1: even overlapping.
 
         - bounding_box: count 1, label 1, grid 2x2
@@ -199,7 +200,7 @@ class TestInterOUnion:
         """
         assert inter_o_union(bounding_box, overlap_cand) == 0.5
 
-    def test_inter_o_union_2(self, bounding_box: np.array, full_overlap_cands: np.array):
+    def test_inter_o_union_2(self, bounding_box, full_overlap_cands, ):
         """Test 2: uneven overlapping.
 
         - bounding_box: count 1, label 1, grid 2x2
@@ -208,9 +209,9 @@ class TestInterOUnion:
         expected result = Array[1,1,1]
         """
         result = inter_o_union(bounding_box, full_overlap_cands)
-        assert (result == np.array((1, 1, 1), dtype=np.float64)).all()
+        assert (result == torch.tensor((1, 1, 1))).all()
 
-    def test_inter_o_union_3(self, bounding_box3: np.array, multi_cand: np.array):
+    def test_inter_o_union_3(self, bounding_box3, multi_cand, ):
         """Test 3: multi class.
 
         - bounding_box: count 1, label 1, grid 3x3
@@ -233,7 +234,7 @@ class TestOverlapping:
     Grid size is always 2x2
     """
 
-    def test_overlapping_1(self, bounding_box: np.array, not_overlap_cands: np.array):
+    def test_overlapping_1(self, bounding_box, not_overlap_cands, ):
         """Test 1: no overlapping.
 
         - bounding_box: count 1, label 1
@@ -243,7 +244,7 @@ class TestOverlapping:
         """
         assert overlapping_loss(bounding_box, not_overlap_cands) == 1
 
-    def test_overlapping_2(self, bounding_box: np.array, mixed_overlap_cands: np.array):
+    def test_overlapping_2(self, bounding_box, mixed_overlap_cands, ):
         """Test 2: mixed overlapping.
 
         - bounding_box: count 1, label 1
@@ -255,8 +256,8 @@ class TestOverlapping:
         """
         assert overlapping_loss(bounding_box, mixed_overlap_cands) == 1 / 2
 
-    def test_overlapping_3(self, bounding_box: np.array, full_overlap_cands: np.array):
-        """Test 3: full overlapping.
+    def test_overlapping_3(self, bounding_box, full_overlap_cands, ):
+        """Test 3: full overlapping.array
 
         - bounding_box: count 1, label 1
         - candidates: count 3, label 1, full overlapping
@@ -265,7 +266,7 @@ class TestOverlapping:
         """
         assert overlapping_loss(bounding_box, full_overlap_cands) == 0
 
-    def test_overlapping_4(self, bounding_box: np.array, diff_label_cands: np.array):
+    def test_overlapping_4(self, bounding_box, diff_label_cands, ):
         """Test 4: diff overlapping.
 
         - bounding_box: count 1, label 1
@@ -275,7 +276,7 @@ class TestOverlapping:
         """
         assert overlapping_loss(bounding_box, diff_label_cands) == 0
 
-    def test_overlapping_5(self, bounding_box: np.array, not_overlap_cand: np.array):
+    def test_overlapping_5(self, bounding_box, not_overlap_cand, ):
         """Test 5: no overlapping single.
 
         - bounding_box: count 1, label 1
@@ -294,7 +295,7 @@ class TestRegression:
     $\Epsilon(\phi) = \sum_p e(X_\phi(p), l_S(p))$
     """
 
-    def test_regression_1(self, prediction_2_cls: np.array, not_overlap_cands: np.array):
+    def test_regression_1(self, prediction_2_cls, not_overlap_cands):
         """Test 1: no overlapping.
 
         - prediction: count 1, label 1
