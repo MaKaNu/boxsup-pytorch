@@ -1,15 +1,13 @@
 """ErrorCalc Pipeline Module."""
 
 from dataclasses import dataclass
-from typing import Union
+from typing import Optional
 
-import numpy as np
-import numpy.typing as npt
 from PIL import Image
 import torch
-import torch.backends.cudnn as cudnn
+from torchvision import transforms
 
-from ..awe_sem_seg.core.models.fcn import get_fcn8s
+from boxsup_pytorch.model.network import FCN8s
 from ..losses import overlapping_loss, regression_loss, weighted_loss
 
 
@@ -17,45 +15,39 @@ from ..losses import overlapping_loss, regression_loss, weighted_loss
 class ErrorCalc:
     """The ErrorCalc Process."""
 
-    in_image: Image = None
-    in_masks: npt.NDArray[np.float64] = None
-    in_bbox: npt.NDArray[np.float64] = None
-    out_masks: npt.NDArray[np.float64] = None
-    out_loss: Union[np.float64, npt.NDArray[np.float64]] = None
+    network: FCN8s
+    in_image: Optional[Image.Image] = None
+    in_masks: Optional[torch.Tensor] = None
+    in_bbox: Optional[torch.Tensor] = None
+    out_loss: Optional[torch.Tensor] = None
 
     def update(self):
         """Update the ErrorCalc Process."""
-        predicted_classes = self._network_inference()
-        overlap_e = overlapping_loss(self.in_masks, self.in_bbox)
-        regression_e = regression_loss(predicted_classes, self.in_masks)
-        self.out_masks = self.in_masks
+        network_output = self._network_inference()[0].cpu()
+        overlap_e = overlapping_loss(self.in_bbox, self.in_masks)
+        regression_e = regression_loss(network_output, self.in_masks)
         self.out_loss = weighted_loss(overlap_e, regression_e)
 
-    def _network_inference(self):
-        """Calculate network inference.
+    def set_inputs(self, **kwargs) -> None:
+        assert "image" in kwargs.keys()
+        assert "bbox" in kwargs.keys()
+        assert "masks" in kwargs.keys()
 
-        Returns:
-            np.array: Array with Class predictions
-        """
+        self.in_image = kwargs['image']
+        self.in_bbox = kwargs['bbox']
+        self.in_masks = kwargs['masks']
 
+    def get_outputs(self):
+        return {'loss': self.out_loss}
+
+    def _network_inference(self) -> torch.Tensor:
         # Setup Model
-        model = get_fcn8s(
-            dataset='mars',
-            backbone='vgg16',
-            pretrained=True,
-            local_rank=0
-        )
-        if torch.cuda.is_available():
-            cudnn.benchmark = True
-            use_device = "cuda"
-        else:
-            use_device = "cpu"
-        device = torch.device(use_device)
-        model.to(device)
-        model.eval()
-        
+        self.network.eval()
+
         # Begin Inference
-        image = image.to(self.device)
+        trans = transforms.ToTensor()
+        image = trans(self.in_image).to(self.network.device)
+        image = image[None, :]  # Add Dummy Batch Dim
         with torch.no_grad():
-                outputs = model(self.in_image)
+            outputs = self.network(image)
         return outputs
