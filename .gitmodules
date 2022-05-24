@@ -1,3 +1,0 @@
-[submodule "boxsup_pytorch/awe_sem_seg"]
-	path = boxsup_pytorch/awe_sem_seg
-	url = git@github.com:MaKaNu/awesome-semantic-segmentation-pytorch.git
