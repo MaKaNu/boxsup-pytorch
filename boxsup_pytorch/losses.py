@@ -9,48 +9,47 @@ import torch.nn as nn
 
 
 def overlapping_loss(
-    box: npt.NDArray[np.float64], candidates: npt.NDArray[np.float64]
-) -> Union[npt.NDArray[np.float64], np.float64]:
+    box: torch.Tensor, candidates: torch.Tensor
+) -> torch.Tensor:
     """Calculate how well candidates matches the bounding box.
 
     Args:
-        box (np.array): boundingbox
-        candidates (np.array): candidate or array of candidates
+        box (torch.Tensor): boundingbox
+        candidates (torch.Tensor): candidate or array of candidates
 
     Returns:
-        np.float64: the calculated loss
+        torch.Tensor: the calculated loss
     """
-    print(1 - inter_o_union(box, candidates))
     if len(candidates.shape) == 3:
         N = candidates.shape[0]
         return (
-            1 / N * np.sum((1 - inter_o_union(box, candidates)) * compare_labels(box, candidates))
+            1 / N * torch.sum(
+                (1 - inter_o_union(box, candidates)) * compare_labels(box, candidates)
+            )
         )
     else:
         return (1 - inter_o_union(box, candidates)) * compare_labels(box, candidates)
 
 
 def regression_loss(
-    est_mask: npt.NDArray[np.float64], lab_mask: npt.NDArray[np.float64]
-) -> Union[npt.NDArray[np.float64], np.float64]:
+    est_mask: torch.Tensor, lab_mask: torch.Tensor
+) -> torch.Tensor:
     """Calculate logistic regression.
 
     Args:
-        est_mask (npt.NDArray[np.float64]): Estimated mask
-        lab_mask (npt.NDArray[np.float64]): Label mask
+        est_mask (torch.Tensor): Estimated mask
+        lab_mask (torch.Tensor): Label mask
 
     Returns:
-        Union[npt.NDArray[np.float64], np.float64]: logistic regression loss
+        torch.Tensor: logistic regression loss
     """
     if len(lab_mask.shape) == 3:  # More than 1 candidate
         num_labels = lab_mask.shape[0]
-        est_mask = np.concatenate([est_mask] * num_labels)
+        est_mask = est_mask.repeat(num_labels, 1, 1, 1)
     else:
         lab_mask = lab_mask.reshape(1, *lab_mask.shape)
     loss = nn.CrossEntropyLoss(reduction="none", ignore_index=0)
-    input = torch.from_numpy(est_mask.astype(np.float64))
-    target = torch.from_numpy(lab_mask.astype(np.int64))
-    return torch.mean(loss(input, target), dim=(1, 2)).numpy()
+    return torch.mean(loss(est_mask, lab_mask), dim=(1, 2))
 
 
 def weighted_loss(
@@ -72,52 +71,54 @@ def weighted_loss(
 
 
 def compare_labels(
-    box: npt.NDArray[np.float64], candidates: npt.NDArray[np.float64]
-) -> Union[bool, npt.NDArray[np.bool_]]:
+    box: torch.Tensor, candidates: torch.Tensor
+) -> torch.Tensor:
     """Check if label of box is equal to labels of candidates.
 
     Args:
-        box (np.array): BoundingBox
-        candidates (np.array): Candidate or array of candidates
+        box (torch.Tensor): BoundingBox
+        candidates (torch.Tensor): Candidate or array of candidates
 
     Returns:
         bool: True if labels are equal
     """
-    axis = None
+    dim = (0, 1)
     if len(candidates.shape) == 3:  # More than 1 candidate
-        axis = (1, 2)
-    return np.max(box) == np.max(candidates, axis=axis)
+        dim = (1, 2)
+    return torch.max(box) == torch.amax(candidates, dim=dim)
 
 
 def inter_o_union(
-    pred: npt.NDArray[np.float64], target: npt.NDArray[np.float64]
-) -> npt.NDArray[np.float64]:
+    pred: torch.Tensor, target: torch.Tensor
+) -> torch.Tensor:
     """Calculate Intersection over Union.
 
     Args:
-        pred (np.array): The prediction(s) px array
-        target (np.array): The target(s) px array
+        pred (torch.Tensor): The prediction(s) px array
+        target (torch.Tensor): The target(s) px array
 
     Returns:
-        float: the divison of sum of intersection px by union px
+        torch.Tensor: the divison of sum of intersection px by union px
     """
-    axis = None
+    dim = (0, 1)
     if len(pred.shape) == 3 or len(target.shape) == 3:  # More than 1 pred
-        axis = (1, 2)
+        dim = (1, 2)
     # Get highest Class idx
-    high_class = np.max((np.max(pred), np.max(target)))
+    high_class = max(pred.max(), target.max())
 
     inter = 0
     union = 0
     for class_value in range(1, high_class + 1):
-        mask_pred = np.ma.masked_where(pred == class_value, pred).mask
-        mask_target = np.ma.masked_where(target == class_value, target).mask
+        mask_pred = pred == class_value
+        mask_target = target == class_value
         if not mask_pred.shape == pred.shape:
-            mask_pred = np.zeros_like(pred, dtype=bool)
+            mask_pred = torch.zeros(pred.shape, dtype=bool)
         if not mask_target.shape == target.shape:
-            mask_target = np.zeros_like(target, dtype=bool)
+            mask_target = torch.zeros(target.shape, dtype=bool)
 
-        inter += np.sum(np.logical_and(mask_pred, mask_target), axis=axis, dtype=np.float64)
-        union += np.sum(np.logical_or(mask_pred, mask_target), axis=axis, dtype=np.float64)
-
-    return np.divide(inter, union, out=np.zeros_like(union), where=union != 0)
+        inter += torch.sum(mask_pred.logical_and(mask_target), dim=dim, dtype=torch.float64)
+        union += torch.sum(mask_pred.logical_or(mask_target), dim=dim, dtype=torch.float64)
+    zero_mask = union != 0
+    i_o_u = torch.zeros(inter.shape, dtype=torch.float64)
+    i_o_u[zero_mask] = inter[zero_mask].div(union[zero_mask])
+    return i_o_u
