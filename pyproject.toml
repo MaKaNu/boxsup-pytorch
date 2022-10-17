@@ -21,7 +21,7 @@ include = [
 
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.11"
+python = ">=3.9,<3.10"
 importlib_metadata = ">=4.4.0"
 numpy = "1.22.3"
 Pillow = "^9.1.0"
@@ -29,12 +29,12 @@ ninja = "^1.10.2"
 tqdm = "^4.64.0"
 scipy = "^1.8.0"
 torch = [
-    {url = "https://download.pytorch.org/whl/cu113/torch-1.11.0%2Bcu113-cp310-cp310-win_amd64.whl", platform = "win32"},
-    {version = "^1.11.0", platform = "linux"}
+    {url = "https://download.pytorch.org/whl/cu116/torch-1.12.1%2Bcu116-cp39-cp39-win_amd64.whl", platform = "win32"},
+    {version = "1.12.1", platform = "linux"}
 ]
 torchvision = [
-    {url = "https://download.pytorch.org/whl/cu113/torchvision-0.12.0%2Bcu113-cp310-cp310-linux_x86_64.whl", platform = "win32"},
-    {version = "^1.12.0", platform = "linux"}
+    {url = "https://download.pytorch.org/whl/cu116/torchvision-0.13.1%2Bcu116-cp39-cp39-win_amd64.whl", platform = "win32"},
+    {version = "0.13.1", platform = "linux" }
 ]
 
 
