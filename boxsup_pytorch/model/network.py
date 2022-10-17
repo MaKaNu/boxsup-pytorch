@@ -65,7 +65,7 @@ class FCN8s(nn.Module):
             auxout = F.interpolate(auxout, x.size()[2:], mode="bilinear", align_corners=True)
             outputs.append(auxout)
 
-        return tuple(outputs)
+        return outputs
 
 
 class _FCNHead(nn.Module):

@@ -23,36 +23,42 @@ class UpdateNetwork():
     out_labelmasks: Optional[torch.Tensor] = None
 
     def update(self):
+
+        # Load Config Data
         num_train = GLOBAL_CONFIG.config().getany(section="DEFAULT", option="num_train")
         num_val = GLOBAL_CONFIG.config().getany(section="DEFAULT", option="num_val")
-        
+        batch_size = GLOBAL_CONFIG.config().getany(section="DEFAULT", option="batch_size")
+        num_workers = GLOBAL_CONFIG.config().getany(section="DEFAULT", option="num_workers")
+
         data_train = {
             'img': self.in_images[0:num_train],
             'lbl': self.in_masks[0:num_train]
         }
 
-        data_val = {
-            'img': self.in_images[num_train:num_train + num_val],
-            'lbl': self.in_masks[num_train:num_train + num_val]
-        }
-
         dataset_train = BoxSupUpdateDataset(data_train)
-        dataset_val = BoxSupUpdateDataset(data_val)
-
-        # Load Config Data
-        batch_size = GLOBAL_CONFIG.config().getany(section="DEFAULT", option="batch_size")
-        num_workers = GLOBAL_CONFIG.config().getany(section="DEFAULT", option="num_workers")
 
         dataloader_train = DataLoader(
             dataset_train, batch_size=batch_size, shuffle=True, num_workers=num_workers)
 
-        dataloader_val = DataLoader(
-            dataset_val, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+        if num_val > 0:
+            data_val = {
+                #'img': self.in_images[num_train:num_train + num_val],
+                #'lbl': self.in_masks[num_train:num_train + num_val]
+                'img': self.in_images,
+                'lbl': self.in_masks
+            }
 
-        dataloaders = {
-            'train': dataloader_train,
-            'val': dataloader_val
-        }
+            dataset_val = BoxSupUpdateDataset(data_val)
+
+            dataloader_val = DataLoader(
+                dataset_val, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+
+            dataloaders = {
+                'train': dataloader_train,
+                'val': dataloader_val
+            }
+        else:
+            dataloaders = {'train': dataloader_train}
 
         criterion = nn.CrossEntropyLoss()
 

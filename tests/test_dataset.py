@@ -14,7 +14,7 @@ class TestBoxSupDataset():
 
         dataset = BoxSupDataset(root)
 
-        mask = dataset._generate_mask_from_xml(dataset.label_list[0])
+        mask = dataset._generate_mask_from_xml(dataset.bbox_list[0])
         assert mask.shape == torch.Size([10, 1024, 1024])
         assert mask[0].max() == 6
         assert mask[1].max() == 1
@@ -32,9 +32,10 @@ class TestBoxSupDataset():
 
         dataset = BoxSupDataset(root)
 
-        sample = dataset[0]
-        assert sample[0].size == (1024, 1024)
-        assert sample[1].shape == torch.Size([10, 1024, 1024])
+        img, bbox, mask = dataset[0]
+        assert img.size == (1024, 1024)
+        assert len(bbox) == 10
+        assert len(mask) == 991
 
     def test_dataset_get_with_transforms(self):
         root = Path(__file__).parent / "data/train"
@@ -55,9 +56,10 @@ class TestBoxSupDataset():
 
         dataset = BoxSupDataset(root, transform, target_transform)
 
-        sample = dataset[0]
-        assert sample[0].shape == torch.Size([3, 224, 224])
-        assert sample[1].shape == torch.Size([10, 224, 224])
+        img, bbox, mask = dataset[0]
+        assert img.shape == torch.Size([3, 224, 224])
+        assert len(bbox) == 10
+        assert len(mask) == 991
 
     def test_dataset_len(self):
         root = Path(__file__).parent / "data/train"

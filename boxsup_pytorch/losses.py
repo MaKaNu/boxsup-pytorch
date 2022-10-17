@@ -1,15 +1,17 @@
 """Module for loss functions."""
 
-from typing import Union
+from typing import List, Union
 
 import numpy as np
 import numpy.typing as npt
 import torch
 import torch.nn as nn
 
+from boxsup_pytorch.pipeline.core import create_mask_from_index
+
 
 def overlapping_loss(
-    box: torch.Tensor, candidates: torch.Tensor
+    bbox: torch.Tensor, candidates: torch.Tensor
 ) -> torch.Tensor:
     """Calculate how well candidates matches the bounding box.
 
@@ -20,19 +22,20 @@ def overlapping_loss(
     Returns:
         torch.Tensor: the calculated loss
     """
-    if len(candidates.shape) == 3:
-        N = candidates.shape[0]
-        return (
-            1 / N * torch.sum(
-                (1 - inter_o_union(box, candidates)) * compare_labels(box, candidates)
-            )
-        )
-    else:
-        return (1 - inter_o_union(box, candidates)) * compare_labels(box, candidates)
+    N = len(candidates)
+    loss = 0
+    bbox_mask_class = torch.Tensor([bbox[0]])
+    bbox_mask_indices = bbox[1]
+    for candidate in candidates:
+        candidate_mask_class = torch.Tensor([candidate[0]])
+        candidate_mask_indices = candidate[1]
+        loss += (1 - inter_o_union(bbox_mask_indices, candidate_mask_indices)) * \
+            compare_labels(bbox_mask_class, candidate_mask_class)
+    return 1/N * loss
 
 
 def regression_loss(
-    est_mask: torch.Tensor, lab_mask: torch.Tensor
+    prediction: torch.Tensor, candidates: torch.Tensor
 ) -> torch.Tensor:
     """Calculate logistic regression.
 
@@ -41,21 +44,25 @@ def regression_loss(
         lab_mask (torch.Tensor): Label mask
 
     Returns:
-        torch.Tensor: logistic regression loss
+        List: logistic regression loss
     """
-    if len(lab_mask.shape) == 3:  # More than 1 candidate
-        num_labels = lab_mask.shape[0]
-        est_mask = est_mask.repeat(num_labels, 1, 1, 1)
-    else:
-        lab_mask = lab_mask.reshape(1, *lab_mask.shape)
-    loss = nn.CrossEntropyLoss(reduction="none", ignore_index=0)
-    return torch.mean(loss(est_mask, lab_mask), dim=(1, 2))
+    resolution = prediction.shape[2:]
+    loss = nn.CrossEntropyLoss(ignore_index=0)
+    result = []
+    for candidate in candidates:
+        created_mask = create_mask_from_index(
+            mask_indices=candidate[1],
+            mask_class=candidate[0],
+            resolution=resolution
+        )
+        result.append(loss(prediction, created_mask.reshape(1, *created_mask.shape)))
+    return result
 
 
 def weighted_loss(
-    o_loss: Union[np.float64, npt.NDArray[np.float64]],
-    r_loss: Union[np.float64, npt.NDArray[np.float64]],
-    weight: np.float64 = np.float64(3.0),
+    o_loss: torch.Tensor,
+    r_loss: List[torch.Tensor],
+    weight: torch.Tensor = torch.Tensor([3.0]),
 ) -> Union[np.float64, npt.NDArray[np.float64]]:
     """Calculate the weighted loss.
 
@@ -67,7 +74,8 @@ def weighted_loss(
     Returns:
         np.float64: weighted loss
     """
-    return o_loss + weight * r_loss
+
+    return torch.Tensor([reg * weight + o_loss for reg in r_loss])
 
 
 def compare_labels(
@@ -82,10 +90,7 @@ def compare_labels(
     Returns:
         bool: True if labels are equal
     """
-    dim = (0, 1)
-    if len(candidates.shape) == 3:  # More than 1 candidate
-        dim = (1, 2)
-    return torch.max(box) == torch.amax(candidates, dim=dim)
+    return box == candidates
 
 
 def inter_o_union(
@@ -100,25 +105,10 @@ def inter_o_union(
     Returns:
         torch.Tensor: the divison of sum of intersection px by union px
     """
-    dim = (0, 1)
-    if len(pred.shape) == 3 or len(target.shape) == 3:  # More than 1 pred
-        dim = (1, 2)
-    # Get highest Class idx
-    high_class = max(pred.max(), target.max())
+    if len(pred) > len(target):
+        inter = sum(torch.isin(pred, target, assume_unique=True))
+    else:
+        inter = sum(torch.isin(target, pred, assume_unique=True))
 
-    inter = 0
-    union = 0
-    for class_value in range(1, high_class + 1):
-        mask_pred = pred == class_value
-        mask_target = target == class_value
-        if not mask_pred.shape == pred.shape:
-            mask_pred = torch.zeros(pred.shape, dtype=bool)
-        if not mask_target.shape == target.shape:
-            mask_target = torch.zeros(target.shape, dtype=bool)
-
-        inter += torch.sum(mask_pred.logical_and(mask_target), dim=dim, dtype=torch.float64)
-        union += torch.sum(mask_pred.logical_or(mask_target), dim=dim, dtype=torch.float64)
-    zero_mask = union != 0
-    i_o_u = torch.zeros(inter.shape, dtype=torch.float64)
-    i_o_u[zero_mask] = inter[zero_mask].div(union[zero_mask])
-    return i_o_u
+    union = len(pred) + len(target) - inter
+    return inter/union if union > 0 else 0

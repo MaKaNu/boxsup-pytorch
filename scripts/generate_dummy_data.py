@@ -3,8 +3,8 @@ from argparse import ArgumentParser
 from pathlib import Path
 from random import randint
 
-from PIL import Image, ImageDraw
 from bs4 import BeautifulSoup
+from PIL import Image, ImageDraw
 
 
 ASCII_CHARS = "@#S%?*+;:,. "
@@ -49,14 +49,14 @@ def pixels_to_ascii(image):
     return chars
 
 
-def create_bbox_of_object(center, radius, object_type):
+def create_bbox_of_object(center, radius, img_width, object_type):
     base_object = BeautifulSoup(XML_BASE_OBJECT, "html.parser")
 
     # Specify Values of BBox
     xmin = max(0, center[0] - radius)
     ymin = max(0, center[1] - radius)
-    xmax = max(0, center[0] + radius)
-    ymax = max(0, center[1] + radius)
+    xmax = min(img_width, center[0] + radius)
+    ymax = min(img_width, center[1] + radius)
     base_object.object.select_one('name').string = object_type
     base_object.object.bndbox.xmin.string = str(xmin)
     base_object.object.bndbox.ymin.string = str(ymin)
@@ -138,7 +138,7 @@ def main():
 
             # Append Object to Annotation
             annotation.annotation.append(
-                create_bbox_of_object(center, radius, object_type)
+                create_bbox_of_object(center, radius, image_width, object_type)
             )
 
             if object_type == "circle":
@@ -159,7 +159,7 @@ def main():
 
         # Save XML
         with open(xml_file, "w") as file:
-            file.write(annotation.prettify())
+            file.write(str(annotation))
 
         if args.debug:
             # Convert Image to Ascii

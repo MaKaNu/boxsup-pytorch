@@ -1,11 +1,18 @@
 """Process Greedy Start Module."""
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+import logging
 from typing import List, Optional
 
 import torch
 
 from boxsup_pytorch.config.config import GLOBAL_CONFIG
+from boxsup_pytorch.data.dataset import BoxSupDataset
 from boxsup_pytorch.pipeline.strats import GreedyStrat, MiniMaxStrat
+
+
+# Get Global Logger
+LOGGER_NAME = __name__.split('.')[-1]
+LOGGER = logging.getLogger(LOGGER_NAME)
 
 
 @dataclass
@@ -13,20 +20,17 @@ class UpdateMasks():
 
     greedy: GreedyStrat
     minimax: MiniMaxStrat
-    in_images: Optional[List[torch.Tensor]] = None
-    in_masks: Optional[torch.Tensor] = None
-    in_bboxes: Optional[torch.Tensor] = None
-    out_labelmasks: Optional[List[torch.Tensor]] = None
+    dataset: BoxSupDataset
+    out_labelmasks: Optional[List[torch.Tensor]] = field(default_factory=lambda: [])
+    out_images: Optional[List[torch.Tensor]] = field(default_factory=lambda: [])
 
     def update(self):
-        num_images = self.in_images.shape[0]
-        self.out_labelmasks = []
-
-        for idx in range(num_images):
+        for image, bboxes, masks in self.dataset:
+            LOGGER.info(f"Update Masks for image with shape {image.shape}")
             input_values = {
-                'image': self.in_images[idx],
-                'bboxes': self.in_bboxes[idx],
-                'masks': self.in_masks
+                'image': image,
+                'bboxes': bboxes,
+                'masks': masks
             }
             strat = GLOBAL_CONFIG.config().get(
                 section='DEFAULT', option='strat', fallback='greedy'
@@ -34,22 +38,17 @@ class UpdateMasks():
             if strat == 'greedy':
                 self.greedy.set_inputs(**input_values)
                 self.greedy.update()
-                self.out_labelmasks.append(self.greedy.get_outputs())
+                self.out_labelmasks.append(self.greedy.get_outputs()['labelmask'])
             elif strat == 'minimax':
                 self.minimax.set_inputs(**input_values)
                 self.minimax.update()
-                self.out_labelmasks.append(self.minimax.get_outputs())
+                self.out_labelmasks.append(self.minimax.get_outputs()['labelmask'])
             else:
                 RuntimeError('Unknown strategy %s', strat)
-
-    def set_inputs(self, **kwargs):
-        assert "images" in kwargs.keys()
-        assert "bboxes" in kwargs.keys()
-        assert "masks" in kwargs.keys()
-
-        self.in_images = kwargs['images']
-        self.in_bboxes = kwargs['bboxes']
-        self.in_masks = kwargs['masks']
+            self.out_images.append(image)
 
     def get_outputs(self):
-        return {'labelmasks': self.out_labelmasks}
+        return {
+            'images': self.out_images,
+            'masks': self.out_labelmasks
+        }

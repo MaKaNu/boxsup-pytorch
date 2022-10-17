@@ -1,7 +1,8 @@
 """Dataloader Module."""
-from copy import copy
+import copy
+import logging
 from pathlib import Path
-from time import time
+import time
 
 import torch
 from torch.backends import cudnn
@@ -10,6 +11,10 @@ import yaml
 
 from boxsup_pytorch.config.config import GLOBAL_CONFIG
 from boxsup_pytorch.data.dataset import BoxSupDataset
+
+# Global Logger
+LOGGER_NAME = __name__.split('.')[0]
+LOGGER = logging.getLogger(LOGGER_NAME)
 
 
 class BoxSupDataloader():
@@ -22,23 +27,22 @@ class BoxSupDataloader():
             statistic_data = yaml.safe_load(file)
         mean = statistic_data['mean']
         std = statistic_data['std']
-        self.data_transforms = {
-            'img': transforms.Compose([
+        transform = transforms.Compose([
                 transforms.Resize(256),
                 transforms.CenterCrop(224),
                 transforms.ToTensor(),
                 transforms.Normalize(mean, std)
-            ]),
-            'lbl': transforms.Compose([
+        ])
+        target_transfrom = transforms.Compose([
                 transforms.Resize(256),
                 transforms.CenterCrop(224),
             ])
-        }
 
         self.image_datasets = {
             x: BoxSupDataset(
                 self.data_dir / x,
-                self.data_transforms
+                transform,
+                target_transfrom
             ) for x in ['train', 'val']
         }
 
@@ -62,6 +66,19 @@ class BoxSupDataloader():
 
 
 def train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs=80):
+    """Trains a given model.
+
+    Args:
+        model (_type_): Network Model
+        dataloaders (_type_): Dataset Dataloader
+        criterion (_type_): Loss Criterion
+        optimizer (_type_): Optimizer Object
+        scheduler (_type_): Learningrate Scheduler
+        num_epochs (int, optional): Number of repeated Training iterations. Defaults to 80.
+
+    Returns:
+        _type_: trained model
+    """
     since = time.time()
 
     device = _device()
@@ -70,12 +87,15 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs=
     best_acc = 0.0
 
     dataset_sizes = {
-        x: GLOBAL_CONFIG.config().get(section="DEFAULT", option="num_{x}") for x in ['train', 'val']
+        x: GLOBAL_CONFIG.config().getany(section="DEFAULT", option=f"num_{x}") for x in [
+            'train', 'val'
+        ]
     }        # Decay LR by a factor of 0.1 every 7 epochs
 
     for epoch in range(num_epochs):
-        print(f"Epoch {epoch}/{num_epochs - 1}")
-        print("-" * 10)
+        LOGGER.info("-"*10)
+        LOGGER.info(f"Epoch {epoch}/{num_epochs - 1}")
+        LOGGER.info("-"*10)
 
         for phase in ["train", "val"]:
             if phase == "train":
@@ -95,8 +115,8 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs=
                 # Forward Propagation
                 with torch.set_grad_enabled(phase == 'train'):
                     outputs = model(inputs)
-                    _, preds = torch.max(outputs, 1)
-                    loss = criterion(outputs, labels)
+                    _, preds = torch.max(outputs[0], 1)
+                    loss = criterion(outputs[0], labels.type(torch.long))
 
                     # Backward Propagation
                     if phase == 'train':
@@ -112,18 +132,18 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs=
             epoch_loss = running_loss / dataset_sizes[phase]
             epoch_acc = running_corrects.double() / dataset_sizes[phase]
 
-            print(f'{phase} Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}')
+            LOGGER.info(f'{phase} Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}')
 
             # deep copy the model
             if phase == 'val' and epoch_acc > best_acc:
                 best_acc = epoch_acc
                 best_model_wts = copy.deepcopy(model.state_dict())
 
-        print()
+        LOGGER.info("")
 
     time_elapsed = time.time() - since
-    print(f'Training complete in {time_elapsed // 60:.0f}m {time_elapsed % 60:.0f}s')
-    print(f'Best val Acc: {best_acc:4f}')
+    LOGGER.info(f'Training complete in {time_elapsed // 60:.0f}m {time_elapsed % 60:.0f}s')
+    LOGGER.info(f'Best val Acc: {best_acc:4f}')
 
     # load best model weights
     model.load_state_dict(best_model_wts)

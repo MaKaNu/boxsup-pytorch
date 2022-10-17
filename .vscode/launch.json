@@ -1,0 +1,47 @@
+{
+    // Verwendet IntelliSense zum Ermitteln möglicher Attribute.
+    // Zeigen Sie auf vorhandene Attribute, um die zugehörigen Beschreibungen anzuzeigen.
+    // Weitere Informationen finden Sie unter https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Package Main",
+            "type": "python",
+            "request": "launch",
+            "program": "boxsup_pytorch",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Python: Current File with profiler",
+            "type": "python",
+            "request": "launch",
+            "module": "cProfile",
+            "args": [
+                "-o", "/tmp/tmp.prof", "${file}"
+            ]
+        },
+        {
+            "name": "Python: Aktuelle Datei",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Python: Mat2Dict",
+            "type": "python",
+            "request": "launch",
+            "program": "scripts/mat2dict.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "-d",
+                "boxsup_pytorch/data/datasets/dummy/train/",
+                "-n",
+                "5"
+            ]
+        },
+    ]
+}

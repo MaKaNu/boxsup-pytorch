@@ -13,7 +13,6 @@ TestClasses:
 from cmath import isclose
 
 import numpy as np
-import pytest
 import torch
 
 from boxsup_pytorch.losses import (
@@ -23,100 +22,6 @@ from boxsup_pytorch.losses import (
     regression_loss,
     weighted_loss,
 )
-
-
-# Fixture Setup
-@pytest.fixture()
-def bounding_box() -> torch.Tensor:
-    """Pytest fixture of 2x2 BoundingBox."""
-    return torch.tensor([[0, 1], [0, 0]])
-
-
-@pytest.fixture()
-def bounding_box3() -> torch.Tensor:
-    """Pytest fixture of 3x3 BoundingBox."""
-    return torch.tensor([[1, 1, 1], [1, 0, 2], [2, 2, 2]])
-
-
-@pytest.fixture()
-def prediction_2_cls() -> torch.Tensor:
-    """Pytest fixture of 2x2 Prediction based on mask."""
-    prediction_mask = torch.tensor([[0, 1], [0, 0]])
-    bsize = 1
-    num_cls = 2
-    dim = prediction_mask.shape
-    for cls_idx in prediction_mask.flatten():
-        if "pred" not in vars():
-            pred = np.eye(num_cls, 1, k=-cls_idx).flatten()
-            continue
-        pred = np.vstack((pred, np.eye(num_cls, 1, k=-cls_idx).flatten()))
-
-    return torch.tensor(pred.transpose().reshape(bsize, num_cls, *dim))
-
-
-@pytest.fixture()
-def prediction_3_cls() -> np.array:
-    """Pytest fixture of 2x2 Prediction based on mask."""
-    prediction_mask = np.array([[0, 1], [0, 0]])
-    bsize = 1
-    num_cls = 3
-    dim = prediction_mask.shape
-    for cls_idx in prediction_mask.flatten():
-        if "pred" not in vars():
-            pred = np.eye(num_cls, 1, k=-cls_idx).flatten()
-            continue
-        pred = np.vstack((pred, np.eye(num_cls, 1, k=-cls_idx).flatten()))
-    return torch.tensor(pred.transpose().reshape(bsize, num_cls, *dim))
-
-
-@pytest.fixture()
-def multi_cand() -> np.array:
-    """Pytest fixture of 3x3 multi class."""
-    return torch.tensor([[1, 1, 1], [2, 0, 1], [2, 2, 2]])
-
-
-@pytest.fixture()
-def overlap_cand() -> np.array:
-    """Pytest fixture of 2x2 overlapping candidate."""
-    return torch.tensor([[0, 1], [0, 1]])
-
-
-@pytest.fixture()
-def not_overlap_cand() -> np.array:
-    """Pytest fixture of 2x2 not overlapping candidate."""
-    return torch.tensor([[0, 0], [1, 0]])
-
-
-@pytest.fixture()
-def full_overlap_cand():
-    """Pytest fixture of 2x2 full overlapping candidate."""
-    return torch.tensor([[0, 1], [0, 0]])
-
-
-@pytest.fixture()
-def not_overlap_cands(not_overlap_cand):
-    """Pytest fixture of 3 2x2 not overlapping candidates."""
-    return torch.stack((not_overlap_cand, not_overlap_cand, not_overlap_cand))
-
-
-@pytest.fixture()
-def mixed_overlap_cands(
-    not_overlap_cand, overlap_cand, full_overlap_cand
-):
-    """Pytest fixture of 3 2x2 mixed overlapping candidates."""
-    return torch.stack((not_overlap_cand, overlap_cand, full_overlap_cand))
-
-
-@pytest.fixture()
-def full_overlap_cands(full_overlap_cand: np.array) -> np.array:
-    """Pytest fixture of 3 2x2 not overlapping candidates."""
-    return torch.stack((full_overlap_cand, full_overlap_cand, full_overlap_cand))
-
-
-@pytest.fixture()
-def diff_label_cands(full_overlap_cand):
-    """Pytest fixture of 3 2x2 not overlapping candidates."""
-    return torch.stack((full_overlap_cand * 2, full_overlap_cand * 2, full_overlap_cand * 2))
 
 
 class TestCompareLabel:
@@ -135,7 +40,7 @@ class TestCompareLabel:
     Grid size is always 2x2
     """
 
-    def test_compare_labels_1(self, bounding_box: np.array, overlap_cand: np.array):
+    def test_compare_labels_same_classes(self):
         """Test 1: same class labels.
 
         - bounding_box: count 1, label 1
@@ -143,9 +48,11 @@ class TestCompareLabel:
 
         expected result = True
         """
-        assert compare_labels(bounding_box, overlap_cand)
+        bbox = torch.Tensor([1])
+        candidate = torch.Tensor([1])
+        assert compare_labels(bbox, candidate)
 
-    def test_compare_labels_2(self, bounding_box: np.array, overlap_cand: np.array):
+    def test_compare_labels_different_classes(self):
         """Test 2: different class labels.
 
         - bounding_box: count 1, label 1
@@ -153,9 +60,11 @@ class TestCompareLabel:
 
         expected result = False
         """
-        assert not compare_labels(bounding_box, overlap_cand * 2)
+        bbox = torch.Tensor([1])
+        candidate = torch.Tensor([2])
+        assert not compare_labels(bbox, candidate)
 
-    def test_compare_labels_3(self, bounding_box, overlap_cand, ):
+    def test_compare_labels_multi_different_classes(self):
         """Test 3: multi candidates with different class labels.
 
         - bounding_box: count 1, label 1
@@ -164,7 +73,9 @@ class TestCompareLabel:
 
         expected result = Array[True, False]
         """
-        result = compare_labels(bounding_box, torch.stack((overlap_cand, overlap_cand * 2)))
+        bbox = torch.Tensor([1])
+        candidate = torch.Tensor([1, 2])
+        result = compare_labels(bbox, candidate)
         assert (result == torch.tensor((True, False))).all()
 
 
@@ -184,13 +95,9 @@ class TestInterOUnion:
     $sum_of_union_pixel =
     sum(B(l_B)\vee S(l_S))
     $
-
-    Tests using following inputs:
-
-    Grid size is 2x2 and 3x3
     """
 
-    def test_inter_o_union_1(self, bounding_box, overlap_cand, ):
+    def test_inter_o_union_overlap(self):
         """Test 1: even overlapping.
 
         - bounding_box: count 1, label 1, grid 2x2
@@ -198,28 +105,33 @@ class TestInterOUnion:
 
         expected result = 0.5
         """
-        assert inter_o_union(bounding_box, overlap_cand) == 0.5
+        bbox = torch.Tensor([1])
+        candidate = torch.Tensor([1, 3])
+        assert inter_o_union(bbox, candidate) == 0.5
 
-    def test_inter_o_union_2(self, bounding_box, full_overlap_cands, ):
-        """Test 2: uneven overlapping.
+    def test_inter_o_union_no_overlap(self):
+        """Test 1: even overlapping.
 
         - bounding_box: count 1, label 1, grid 2x2
-        - candidates: count 1, label 1, grid 3x2x2, full overlapping
+        - candidates: count 1, label 1, grid 2x2, no overlap
 
-        expected result = Array[1,1,1]
+        expected result = 0
         """
-        result = inter_o_union(bounding_box, full_overlap_cands)
-        assert (result == torch.tensor((1, 1, 1))).all()
+        bbox = torch.Tensor([1])
+        candidate = torch.Tensor([0, 2])
+        assert inter_o_union(bbox, candidate) == 0
 
-    def test_inter_o_union_3(self, bounding_box3, multi_cand, ):
-        """Test 3: multi class.
+    def test_inter_o_union_empty_mask(self):
+        """Test 1: even overlapping.
 
-        - bounding_box: count 1, label 1, grid 3x3
-        - candidates: count 1, label 1, grid 3x3, full overlapping
+        - bounding_box: count 1, label 1, grid 2x2
+        - candidates: count 1, label 1, grid 2x2, overlapping
 
-        expected result = 3/5
+        expected result = 0.5
         """
-        assert inter_o_union(bounding_box3, multi_cand) == 3 / 5
+        bbox = torch.Tensor([])
+        candidate = torch.Tensor([])
+        assert inter_o_union(bbox, candidate) == 0
 
 
 class TestOverlapping:
@@ -234,17 +146,23 @@ class TestOverlapping:
     Grid size is always 2x2
     """
 
-    def test_overlapping_1(self, bounding_box, not_overlap_cands, ):
+    def test_overlapping_no_overlap(self):
         """Test 1: no overlapping.
 
         - bounding_box: count 1, label 1
         - candidates: count 3, label 1, no overlapping
 
-        expected result = 1
+        expected result =bounding_box, not_overlap_cands 1
         """
-        assert overlapping_loss(bounding_box, not_overlap_cands) == 1
+        bbox = (1, torch.Tensor([1]))
+        candidates = [
+            (1, torch.Tensor([2])),
+            (1, torch.Tensor([2])),
+            (1, torch.Tensor([2]))
+        ]
+        assert overlapping_loss(bbox, candidates) == 1
 
-    def test_overlapping_2(self, bounding_box, mixed_overlap_cands, ):
+    def test_overlapping_mixed_overlap(self):
         """Test 2: mixed overlapping.
 
         - bounding_box: count 1, label 1
@@ -254,19 +172,31 @@ class TestOverlapping:
 
         expected result = 1/2
         """
-        assert overlapping_loss(bounding_box, mixed_overlap_cands) == 1 / 2
+        bbox = (1, torch.Tensor([1]))
+        candidates = [
+            (1, torch.Tensor([2])),
+            (1, torch.Tensor([1, 3])),
+            (1, torch.Tensor([1]))
+        ]
+        assert overlapping_loss(bbox, candidates) == 1 / 2
 
-    def test_overlapping_3(self, bounding_box, full_overlap_cands, ):
-        """Test 3: full overlapping.array
+    def test_overlapping_full_overlap(self):
+        """Test 3: full overlapping.array.
 
         - bounding_box: count 1, label 1
         - candidates: count 3, label 1, full overlapping
 
         expected result = 0
         """
-        assert overlapping_loss(bounding_box, full_overlap_cands) == 0
+        bbox = (1, torch.Tensor([1]))
+        candidates = [
+            (1, torch.Tensor([1])),
+            (1, torch.Tensor([1])),
+            (1, torch.Tensor([1]))
+        ]
+        assert overlapping_loss(bbox, candidates) == 0
 
-    def test_overlapping_4(self, bounding_box, diff_label_cands, ):
+    def test_overlapping_different_class(self):
         """Test 4: diff overlapping.
 
         - bounding_box: count 1, label 1
@@ -274,9 +204,15 @@ class TestOverlapping:
 
         expected result = 0
         """
-        assert overlapping_loss(bounding_box, diff_label_cands) == 0
+        bbox = (1, torch.Tensor([1]))
+        candidates = [
+            (2, torch.Tensor([1])),
+            (2, torch.Tensor([1])),
+            (2, torch.Tensor([1]))
+        ]
+        assert overlapping_loss(bbox, candidates) == 0
 
-    def test_overlapping_5(self, bounding_box, not_overlap_cand, ):
+    def test_overlapping_no_overlap_single(self):
         """Test 5: no overlapping single.
 
         - bounding_box: count 1, label 1
@@ -284,7 +220,11 @@ class TestOverlapping:
 
         expected result = 1
         """
-        assert overlapping_loss(bounding_box, not_overlap_cand) == 1
+        bbox = (1, torch.Tensor([1]))
+        candidates = [
+            (1, torch.Tensor([2])),
+        ]
+        assert overlapping_loss(bbox, candidates) == 1
 
 
 class TestRegression:
@@ -295,7 +235,7 @@ class TestRegression:
     $\Epsilon(\phi) = \sum_p e(X_\phi(p), l_S(p))$
     """
 
-    def test_regression_1(self, prediction_2_cls, not_overlap_cands):
+    def test_regression_no_overlap(self):
         """Test 1: no overlapping.
 
         - prediction: count 1, label 1
@@ -307,13 +247,30 @@ class TestRegression:
         # since only one field on the candidates is cls idx 1
         # which is not 1 on the prediction
         # the target_0 is the negative logsoftmax of 0
-        target_0 = np.mean((-np.log(np.exp(0) / (np.exp(1) + np.exp(0))), 0, 0, 0))
-        result = regression_loss(prediction_2_cls, not_overlap_cands)
-        target_array = np.array((target_0, target_0, target_0))
+        pred = torch.Tensor(
+            [[
+                [
+                    [1, 0],
+                    [1, 1]
+                ],
+                [
+                    [0, 1],
+                    [0, 0],
+                ],
+            ]]
+        )
+        candidates = [
+            (1, torch.Tensor([2]).to(torch.long)),
+            (1, torch.Tensor([2]).to(torch.long)),
+            (1, torch.Tensor([2]).to(torch.long))
+        ]
+        result = regression_loss(pred, candidates)
+        target_0 = -np.log(np.exp(0) / (np.exp(1) + np.exp(0)))
+        target_array = (target_0, target_0, target_0)
         for values in zip(result, target_array):
-            assert isclose(*values, abs_tol=1e-15)
+            assert isclose(*values, abs_tol=1e-7)
 
-    def test_regression_2(self, prediction_2_cls: np.array, full_overlap_cands: np.array):
+    def test_regression_full_overlap(self):
         """Test 2: full overlapping.
 
         - prediction: count 1, label 1
@@ -325,13 +282,30 @@ class TestRegression:
         # since only one field on the candidates is cls idx 1
         # which is 1 on the prediction
         # the target_1 is the negative logsoftmax of 1
-        target_1 = np.mean((-np.log(np.exp(1) / (np.exp(1) + np.exp(0))), 0, 0, 0))
-        result = regression_loss(prediction_2_cls, full_overlap_cands)
-        target_array = np.array((target_1, target_1, target_1))
+        pred = torch.Tensor(
+            [[
+                [
+                    [1, 0],
+                    [1, 1]
+                ],
+                [
+                    [0, 1],
+                    [0, 0],
+                ],
+            ]]
+        )
+        candidates = [
+            (1, torch.Tensor([1]).to(torch.long)),
+            (1, torch.Tensor([1]).to(torch.long)),
+            (1, torch.Tensor([1]).to(torch.long))
+        ]
+        result = regression_loss(pred, candidates)
+        target_1 = -np.log(np.exp(1) / (np.exp(1) + np.exp(0)))
+        target_array = (target_1, target_1, target_1)
         for values in zip(result, target_array):
-            assert isclose(*values, abs_tol=1e-15)
+            assert isclose(*values, abs_tol=1e-7)
 
-    def test_regression_3(self, prediction_2_cls: np.array, mixed_overlap_cands: np.array):
+    def test_regression_mixed(self):
         """Test 3: mixed overlapping.
 
         - prediction: count 1, label 1
@@ -346,14 +320,35 @@ class TestRegression:
         # where one is 1 and the other is 0 on the prediction
         # the target_0 is the negative logsoftmax of 0
         # the target_1 is the negative logsoftmax of 1
-        target_0 = np.mean((-np.log(np.exp(0) / (np.exp(1) + np.exp(0))), 0, 0, 0))
-        target_1 = np.mean((-np.log(np.exp(1) / (np.exp(1) + np.exp(0))), 0, 0, 0))
-        result = regression_loss(prediction_2_cls, mixed_overlap_cands)
-        target_array = np.array((target_0, target_0 + target_1, target_1))
+        pred = torch.Tensor(
+            [[
+                [
+                    [1, 0],
+                    [1, 1]
+                ],
+                [
+                    [0, 1],
+                    [0, 0],
+                ],
+            ]]
+        )
+        candidates = [
+            (1, torch.Tensor([2]).to(torch.long)),
+            (1, torch.Tensor([1, 3]).to(torch.long)),
+            (1, torch.Tensor([1]).to(torch.long))
+        ]
+        result = regression_loss(pred, candidates)
+        target_0 = -np.log(np.exp(0) / (np.exp(1) + np.exp(0)))
+        target_1 = np.mean((
+            -np.log(np.exp(1) / (np.exp(1) + np.exp(0))),
+            -np.log(np.exp(0) / (np.exp(1) + np.exp(0)))
+        ))
+        target_2 = -np.log(np.exp(1) / (np.exp(1) + np.exp(0)))
+        target_array = (target_0, target_1, target_2)
         for values in zip(result, target_array):
-            assert isclose(*values, abs_tol=1e-15)
+            assert isclose(*values, abs_tol=1e-7)
 
-    def test_regression_4(self, prediction_3_cls: np.array, full_overlap_cand: np.array):
+    def test_regression_diff_overlap(self):
         """Test 4: diff overlapping.
 
         - prediction: count 1, label 1
@@ -365,16 +360,29 @@ class TestRegression:
         # since only one field on the candidates is cls idx 2
         # but the corresponding prediction fireld is 1
         # the target_0 is the negative logsoftmax of 0
-        target_0 = np.mean(
-            (
-                -np.log(np.exp(0) / np.sum(np.exp(np.array((0, 1, 0))))),  # Now three Classes
-                0,  # Background
-                0,  # Backgorund
-                0,  # Background
-            )
+        pred = torch.Tensor(
+            [[
+                [
+                    [1, 0],
+                    [1, 1]
+                ],
+                [
+                    [0, 1],
+                    [0, 0],
+                ],
+                [
+                    [0, 0],
+                    [0, 0]
+                ]
+            ]]
         )
-        result = regression_loss(prediction_3_cls, full_overlap_cand * 2)
-        assert isclose(result, target_0, abs_tol=1e-15)
+        candidates = [
+            (2, torch.Tensor([1]).to(torch.long)),
+        ]
+        result = regression_loss(pred, candidates)
+        target_0 = -np.log(np.exp(0) / np.sum(np.exp(np.array((0, 1, 0)))))
+
+        assert isclose(result[0], target_0, abs_tol=1e-7)
 
 
 class TestWeightedLoss:
@@ -393,7 +401,7 @@ class TestWeightedLoss:
 
         expected result = 15
         """
-        assert weighted_loss(3, 4) == 15
+        assert weighted_loss(3, [4]) == 15
 
     def test_weighted_2(self):
         """Test 2: custom weight.
@@ -404,4 +412,4 @@ class TestWeightedLoss:
 
         expected result = 11
         """
-        assert weighted_loss(3, 4, 2) == 11
+        assert weighted_loss(3, [4], 2) == 11
