@@ -21,15 +21,21 @@ include = [
 
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.11"
+python = ">=3.9,<3.10"
 importlib_metadata = ">=4.4.0"
 numpy = "1.22.3"
 Pillow = ">=9.1.0, <10.0.0"
 ninja = "^1.10.2"
 tqdm = "^4.64.0"
 scipy = "^1.8.0"
-torch = "^1.11.0"
-torchvision = "^0.12.0"
+torch = [
+    {url = "https://download.pytorch.org/whl/cu116/torch-1.12.1%2Bcu116-cp39-cp39-win_amd64.whl", platform = "win32"},
+    {version = "1.12.1", platform = "linux"}
+]
+torchvision = [
+    {url = "https://download.pytorch.org/whl/cu116/torchvision-0.13.1%2Bcu116-cp39-cp39-win_amd64.whl", platform = "win32"},
+    {version = "0.13.1", platform = "linux" }
+]
 configparser = "^5.2.0"
 alive-progress = "^2.4.1"
 beautifulsoup4 = "^4.11.1"
@@ -59,8 +65,9 @@ include-ids="yes"
 msg-template="{msg_id}:{line:3d},{column}: {obj}: {msg}"
 
 [tool.pytest.ini_options]
-addopts = "--cov-config=.coveragerc --cov=boxsup_pytorch --cov-report term-missing  -vv --color=yes --cov-fail-under 80"
+addopts = "--cov=boxsup_pytorch --cov-branch --cov-report term-missing  -vv --color=yes --cov-fail-under 80"
 python_files = "tests.py test_*.py *_tests.py"
+ignore = "boxsup_pytorch/awe_sem_seg"
 
 [build-system]
 requires = ["poetry>=0.12"]
