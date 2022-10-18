@@ -29,12 +29,10 @@ ninja = "^1.10.2"
 tqdm = "^4.64.0"
 scipy = "^1.8.0"
 torch = [
-    {url = "https://download.pytorch.org/whl/cu116/torch-1.12.1%2Bcu116-cp39-cp39-win_amd64.whl", platform = "win32"},
-    {version = "1.12.1", platform = "linux"}
+    {version = "1.12.1+cu116", source = "pytorch"}
 ]
 torchvision = [
-    {url = "https://download.pytorch.org/whl/cu116/torchvision-0.13.1%2Bcu116-cp39-cp39-win_amd64.whl", platform = "win32"},
-    {version = "0.13.1", platform = "linux" }
+    {version = "0.13.1+cu116", source = "pytorch" }
 ]
 configparser = "^5.2.0"
 alive-progress = "^2.4.1"
@@ -57,6 +55,12 @@ yamllint = "^1.25.0"
 pep440 = "^0.1.0"
 [tool.black]
 line-length=100
+
+[[tool.poetry.source]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu116/"
+secondary = true
+default = false
 
 [tool.pylint.reports]
 output-format="colorized"
