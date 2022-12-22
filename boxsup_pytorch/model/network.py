@@ -1,7 +1,7 @@
 """Network Module."""
 from torch import nn
 import torch.nn.functional as F
-from torchvision import models
+from torchvision.models import vgg16, VGG16_Weights
 
 
 class FCN8s(nn.Module):
@@ -17,7 +17,7 @@ class FCN8s(nn.Module):
         self.device = device
         self.aux = aux
         if backbone == "vgg16":
-            self.pretrained = models.vgg16(pretrained=True).features
+            self.pretrained = vgg16(weights=VGG16_Weights.DEFAULT).features
         else:
             raise RuntimeError("unknown backbone: {}".format(backbone))
         self.pool3 = nn.Sequential(*self.pretrained[:17])
@@ -58,6 +58,7 @@ class FCN8s(nn.Module):
         fuse_pool3 = upscore_pool4 + score_pool3
 
         out = F.interpolate(fuse_pool3, x.size()[2:], mode="bilinear", align_corners=True)
+
         outputs.append(out)
 
         if self.aux:
