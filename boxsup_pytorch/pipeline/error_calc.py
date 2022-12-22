@@ -8,7 +8,7 @@ import torch
 from torchvision import transforms
 
 from boxsup_pytorch.model.network import FCN8s
-from ..losses import overlapping_loss, regression_loss, weighted_loss
+from boxsup_pytorch.utils.losses import Losses
 
 
 @dataclass
@@ -16,17 +16,13 @@ class ErrorCalc:
     """The ErrorCalc Process."""
 
     network: FCN8s
-    in_image: Optional[Image.Image] = None
-    in_masks: Optional[torch.Tensor] = None
-    in_bbox: Optional[torch.Tensor] = None
-    out_loss: Optional[torch.Tensor] = None
+    losses: Losses
 
     def update(self):
         """Update the ErrorCalc Process."""
-        network_output = self._network_inference()[0].cpu()
-        overlap_e = overlapping_loss(self.in_bbox, self.in_masks)
-        regression_e = regression_loss(network_output, self.in_masks)
-        self.out_loss = weighted_loss(overlap_e, regression_e)
+        overlap_e = self.losses.overlapping_loss(self.in_bbox, self.in_masks)
+        regression_e = self.losses.regression_loss(network_output, self.in_masks)
+        self.out_loss = self.losses.weighted_loss(overlap_e, regression_e)
 
     def set_inputs(self, **kwargs) -> None:
         assert "image" in kwargs.keys()
