@@ -1,17 +1,51 @@
 """BoxSup Dataset Module."""
-import json
-from pathlib import Path
-from typing import Dict
+from __future__ import annotations
 
-from bs4 import BeautifulSoup
+import collections
+from pathlib import Path
+from typing import Any, Callable, Dict, Optional, Tuple
+from xml.etree.ElementTree import Element as ET_Element
+from xml.etree.ElementTree import parse as ET_parse
+import random
+
+# from bs4 import BeautifulSoup
 import numpy as np
 from PIL import Image
+import toml
 import torch
+from torch import Tensor
 from torchvision.datasets import VisionDataset
+from torchvision.io import read_image
+from torchvision.transforms.functional import to_pil_image
+from torchvision.transforms import ToTensor
+
+from boxsup_pytorch.utils.common import get_larger
 
 
 class BoxSupBaseDataset(VisionDataset):
     """Base Dataset."""
+
+    def __init__(
+        self,
+        root: str,
+        type: str = "train",
+        transforms: Optional[Callable] = None,
+        transform: Optional[Callable] = None,
+        target_transform: Optional[Callable] = None,
+    ) -> None:
+        super().__init__(root, transforms, transform, target_transform)
+        if type not in ["train", "trainval", "val"]:
+            raise ValueError(f"Selected type '{type}' is invalid!")
+        data_dir = Path(root) / f"ImageSets/BoxSup/{type}.txt"
+        with open(data_dir, "r") as data_file:
+            self.file_stems = data_file.read().split("\n")
+        self.root = Path(root)
+        self.classes = toml.load(self.root / "classes.toml")
+        self.transforms = transforms
+        self.transform = transform
+        self.target_transform = target_transform
+        self.type = type
+        self.max_bboxes = self.get_max_bboxes()
 
     def __len__(self) -> int:
         """Return the length of the dataset.
@@ -19,119 +53,126 @@ class BoxSupBaseDataset(VisionDataset):
         Returns:
             int: len of image list
         """
-        return len(self.image_list)
+        return len(self.file_stems)
 
-    def _i32_to_rgb(self, image):
-        if image.mode == "I":
-            img = np.array(image)
-            new_max = 255
-            img_new = (img) * ((new_max) / (img.max()))
-            img_new = Image.fromarray(img_new).convert("RGB")
-            return img_new
-        return image
+    @staticmethod
+    def parse_voc_xml(node: ET_Element) -> Dict[str, Any]:
+        voc_dict: Dict[str, Any] = {}
+        children = list(node)
+        if children:
+            def_dic: Dict[str, Any] = collections.defaultdict(list)
+            for dc in map(BoxSupBaseDataset.parse_voc_xml, children):
+                for ind, v in dc.items():
+                    def_dic[ind].append(v)
+            if node.tag == "annotation":
+                def_dic["object"] = [def_dic["object"]]
+            voc_dict = {node.tag: {ind: v[0] if len(v) == 1 else v for ind, v in def_dic.items()}}
+        if node.text:
+            text = node.text.strip()
+            if not children:
+                voc_dict[node.tag] = text
+        return voc_dict
 
-    def _generate_mask_from_xml(self, xml_file) -> torch.Tensor:
-        with open(xml_file, 'r') as file:
-            data = file.read()
+    def get_max_bboxes(self) -> int:
+        num_bboxes = 0
+        for file_stem in self.file_stems:
+            if not file_stem:
+                continue
+            annotation_path = self.root / f"Annotations/{file_stem}.xml"
+            bbox_dict = self.parse_voc_xml(ET_parse(annotation_path).getroot())
+            num_bboxes_next = len(bbox_dict["annotation"]["object"])
+            num_bboxes = get_larger(num_bboxes, num_bboxes_next)
+        return num_bboxes
 
-        bs_data = BeautifulSoup(data, 'xml')
-
+    def _generate_mask_from_dict(self, annotation: Dict[str, Any]) -> torch.Tensor:
         # We need to get w/h of original Image
-        width = int(bs_data.find('size').width.contents[0])
-        height = int(bs_data.find('size').height.contents[0])
+        width = int(annotation["annotation"]["size"]["width"])
+        height = int(annotation["annotation"]["size"]["height"])
 
         # Initiate Tensor
-        list_of_bboxes = bs_data.find_all('object')
-        bbox_tensor = torch.zeros((
-            len(list_of_bboxes),
-            width,
-            height
-        ))
-        for idx, bbox in enumerate(list_of_bboxes):
-            bbox_class = self.classes_dict[bbox.find('name').contents[0]]
-
+        # but u and v coordinate need to be switched
+        bbox_tensor = torch.zeros((self.max_bboxes, height, width))
+        for idx, object in enumerate(annotation["annotation"]["object"]):
+            bbox_class = self.classes[object["name"]]
             # Get BBox Corners
-            xmin = int(bbox.bndbox.xmin.contents[0])
-            ymin = int(bbox.bndbox.ymin.contents[0])
-            xmax = int(bbox.bndbox.xmax.contents[0])
-            ymax = int(bbox.bndbox.ymax.contents[0])
+            xmin = int(object["bndbox"]["xmin"])
+            ymin = int(object["bndbox"]["ymin"])
+            xmax = int(object["bndbox"]["xmax"])
+            ymax = int(object["bndbox"]["ymax"])
 
-            bbox_tensor[idx, xmin:xmax, ymin:ymax] = bbox_class
+            # So x and y needs to be switched aswell (probably)
+            bbox_tensor[idx, ymin:ymax, xmin:xmax] = bbox_class
         return bbox_tensor.flip(0)  # reverse bbox order
-
-
-class BoxSupDataset(BoxSupBaseDataset):
+    
+    
+class BoxSupDatasetAll(BoxSupBaseDataset):
     """The BoxSupDataset Class."""
 
-    def __init__(self, root_dir: Path, transform=None, target_transform=None):
-        """Construct an BoxSupDataset instance.
+    def __getitem__(self, index: int) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
 
-        Args:
-            root_dir (Path): path to the dataset root dir.
-            transform (transforms, optional): Transformations of the Dataset. Defaults to None.
-        """
-        self.root_dir = root_dir
-        self.transform = transform
-        self.target_transform = target_transform
-        self.image_list = list(root_dir.glob('*.png'))
-        self.label_list = list(root_dir.glob('*.xml'))
-        with open(root_dir.parent / 'classes.json', 'r') as file:
-            dict_str = file.read()
-        self.classes_dict = json.loads(dict_str)
-
-    def __getitem__(self, index: int) -> Dict[str, torch.Tensor]:
-        if torch.is_tensor(index):
-            index = index.tolist()
-
-        img_file = self.image_list[index]
-        loaded_img = Image.open(img_file)
-        img = self._i32_to_rgb(loaded_img)
-        lbl_file = self.label_list[index]
-        lbl = self._generate_mask_from_xml(lbl_file)
+        image_path = self.root / f"JPEGImages/{self.file_stems[index]}.jpg"
+        image = Image.open(image_path).convert("RGB")
+        masks_path = self.root / f"MCG_processed/{self.file_stems[index]}.npz"
+        masks = torch.from_numpy(np.load(masks_path)["masks"])
+        bbox_path = self.root / f"Annotations/{self.file_stems[index]}.xml"
+        bbox_dict = self.parse_voc_xml(ET_parse(bbox_path).getroot())
+        bboxes = self._generate_mask_from_dict(bbox_dict)
+        gt_label_path = self.root / f"SegmentationClass/{self.file_stems[index]}.png"
+        gt_label = Image.open(gt_label_path)
+        #gt_label = read_image(str(gt_label_path)).long()
 
         if self.transform:
-            img = self.transform(img)
+            image = self.transform(image)
         if self.target_transform:
-            lbl = self.target_transform(lbl)
+            masks = self.target_transform(masks)
+            bboxes = self.target_transform(bboxes)
+            gt_label = self.target_transform(gt_label)
+            gt_label = ToTensor()(gt_label).squeeze().long()
 
-        return img, lbl
+        return image, masks, bboxes, gt_label
 
 
-class BoxSupUpdateDataset(VisionDataset):
-    """Dataset which gets updated while training."""
-    def __init__(
-        self, data: Dict[str, torch.Tensor], transform=None, target_transform=None
-    ):
-        """Construct an BoxSupDataset instance.
+class BoxSupDatasetUpdateMask(BoxSupBaseDataset):
+    """The BoxSupDataset Class for Update Mask."""
 
-        Args:
-            root_dir (Path): path to the dataset root dir.
-            transform (transforms, optional): Transformations of the Dataset. Defaults to None.
-        """
-        assert 'img' in data.keys()
-        assert 'lbl' in data.keys()
-        self.data = data
-        self.transform = transform
-        self.target_transform = target_transform
+    def __getitem__(self, index: int) -> Tuple[Tensor, Tensor, Tensor]:
 
-    def __len__(self) -> int:
-        """Get count of images.
-
-        Returns:
-            int: Count images
-        """
-        return len(self.data['img'])
-
-    def __getitem__(self, index: int) -> torch.Tensor:
-        if torch.is_tensor(index):
-            index = index.tolist()
-
-        img = self.data['img'][index]
-        lbl = self.data['lbl'][index]
+        image_path = self.root / f"JPEGImages/{self.file_stems[index]}.jpg"
+        image = read_image(str(image_path))
+        masks_path = self.root / f"MCG_processed/{self.file_stems[index]}.npz"
+        masks = torch.from_numpy(np.load(masks_path)["masks"])
+        bbox_path = self.root / f"Annotations/{self.file_stems[index]}.xml"
+        bbox_dict = self.parse_voc_xml(ET_parse(bbox_path).getroot())
+        bboxes = self._generate_mask_from_dict(bbox_dict)
 
         if self.transform:
-            img = self.transform(img)
+            image = self.transform(image)
         if self.target_transform:
-            lbl = self.target_transform(lbl)
+            masks = self.target_transform(masks)
+            bboxes = self.target_transform(bboxes)
 
-        return img, lbl
+        return image, masks, bboxes
+
+
+class BoxSupDatasetUpdateNet(BoxSupBaseDataset):
+    """The BoxSupDataset Class for Update Mask."""
+
+    def __getitem__(self, index: int) -> Tuple[Tensor, Tensor]:
+
+        image_path = self.root / f"JPEGImages/{self.file_stems[index]}.jpg"
+        image = read_image(str(image_path))
+        gt_label_path = self.root / f"SegmentationClass/{self.file_stems[index]}.png"
+        gt_label = read_image(str(gt_label_path))
+
+        if self.transform:
+            image = self.transform(image)
+        if self.target_transform:
+            gt_label = self.target_transform(gt_label)
+
+        return image, gt_label
+
+
+if __name__ == "__main__":
+    dataset = BoxSupDatasetAll("boxsup_pytorch/data/datasets/pascal2012")
+    items = dataset.__getitem__(0)
+    print(items)
