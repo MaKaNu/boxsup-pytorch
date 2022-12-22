@@ -3,8 +3,8 @@ from argparse import ArgumentParser
 from pathlib import Path
 from random import randint
 
-from PIL import Image, ImageDraw
 from bs4 import BeautifulSoup
+from PIL import Image, ImageDraw
 
 
 ASCII_CHARS = "@#S%?*+;:,. "
