@@ -1,26 +1,54 @@
 """Config Module."""
-
-from ast import literal_eval
-import configparser
 from pathlib import Path
 
+import toml
 
-class GLOBAL_CONFIG:
+
+class GlobalConfig:
     """Config Class for global config providing."""
 
-    __conf = None
-    __path = Path(__file__).resolve().parent / "example.ini"
+    def __init__(self) -> None:
+        """Construct class GlobalConfig.
 
-    @staticmethod
-    def config():
-        """Load or return the saved config.
-
-        Returns:
-            _type_: the configuration
+        Reads the example.toml file and sets the values
         """
-        if GLOBAL_CONFIG.__conf is None:  # Read only once, lazy.
-            GLOBAL_CONFIG.__conf = configparser.ConfigParser(
-                converters={"any": lambda x: literal_eval(x)}
+        __path = Path(__file__).resolve().parent / "example.toml"
+        self.__conf_dict = toml.load(__path)
+
+        # DATASET
+        self.dataset = self.__conf_dict["DATASET"].get("dataset", "pascal")
+        self.root = Path(
+            self.__conf_dict["DATASET"].get(
+                "root", "/mnt/data1/datasets/image/voc/VOCdevkit/VOC2012/"
             )
-            GLOBAL_CONFIG.__conf.read(GLOBAL_CONFIG.__path)
-        return GLOBAL_CONFIG.__conf
+        )
+
+        # DATASET.count
+        self.train_count = self.__conf_dict["DATASET"]["count"].get("train", 0)
+        self.val_count = self.__conf_dict["DATASET"]["count"].get("train", 0)
+
+        # MCG
+        self.mcg_num_candidates = self.__conf_dict["MCG"].get("num_candidates", 30)
+        self.mcg_path = self.root / self.__conf_dict["MCG"].get("mcg_path", "MCG")
+        self.rerun_process = self.__conf_dict["MCG"].get("rerun_process", False)
+
+        # TRAINER
+        self.batchsize = self.__conf_dict["TRAINER"].get("batchsize", 20)
+        self.epochs = self.__conf_dict["TRAINER"].get("epochs", 80)
+        self.optimizer = self.__conf_dict["TRAINER"].get("optimizer", "ADAM")
+
+        # HYPER
+        self.learning_rate = self.__conf_dict["HYPER"].get("lr", 0.001)
+        self.hyperparams = dict()
+        self.hyperparams["ADAM"] = {
+            "betas": self.__conf_dict["HYPER"].get("betas", (0.9, 0.999)),
+            "weight_decay": self.__conf_dict["HYPER"].get("weight_decay", 0)
+        }
+        self.hyperparams["SGD"] = {
+            "momentum": self.__conf_dict["HYPER"].get("momentum", 0.9),
+            "weight_decay": self.__conf_dict["HYPER"].get("weight_decay", 0)
+        }
+        self.hyperparams["StepLR"] = {
+            "step_size": self.__conf_dict["HYPER"].get("step_size", 7),
+            "gamma": self.__conf_dict["HYPER"].get("gamma", 0.1)
+        }
